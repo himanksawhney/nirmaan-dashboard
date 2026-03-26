@@ -532,10 +532,10 @@
         <h3>&#128197; Daily Live Analysis</h3>
         <div class="daily-controls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">From :</label>
-            <input type="date" id="dailyFromPicker" onchange="renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList();"
+            <input type="date" id="dailyFromPicker" onchange="renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
                 style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
             <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">To :</label>
-            <input type="date" id="dailyToPicker" onchange="renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList();"
+            <input type="date" id="dailyToPicker" onchange="renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
                 style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
             <span id="dailyRangeLabel"
                 style="font-size:12px;color:var(--text-dim);padding:4px 12px;background:rgba(233,69,96,0.1);border-radius:20px;border:1px solid rgba(233,69,96,0.2);">
@@ -997,21 +997,20 @@ function renderDashboard() {
     // Render subject grid
     renderSubjectGrid(subjectMap);
 
-    // Render table
-    renderTable(allVideos);
+    // Render table (date filter applied after pickers are set below)
 
     // Render filter buttons
     renderFilters(subjectMap);
 
-    // Set date range pickers — default: oldest to latest
+    // Set date range pickers — only initialise if not already set by user
     const oldestDate = toLocalDateKey(allVideos[allVideos.length - 1].liveDate);
     const latestDate = toLocalDateKey(allVideos[0].liveDate);
     const fromPicker = document.getElementById('dailyFromPicker');
     const toPicker   = document.getElementById('dailyToPicker');
     fromPicker.min = toPicker.min = oldestDate;
     fromPicker.max = toPicker.max = toLocalDateKey(new Date().toISOString());
-    fromPicker.value = oldestDate;
-    toPicker.value   = latestDate;
+    if (!fromPicker.value) fromPicker.value = oldestDate;
+    if (!toPicker.value)   toPicker.value   = latestDate;
     renderDailyAnalysis();
     renderSuperPassSection();
 }
@@ -1241,11 +1240,24 @@ function renderFilters(subjectMap) {
         subjects.map(s => `<button class="filter-btn" data-filter="${s}" onclick="filterTable('${s}', this)">${s}</button>`).join('');
 }
 
+// Returns allVideos filtered by the currently selected date range
+function getDateFilteredVideos() {
+    const fromStr = document.getElementById('dailyFromPicker')?.value;
+    const toStr   = document.getElementById('dailyToPicker')?.value;
+    if (!fromStr || !toStr) return allVideos;
+    const [from, to] = fromStr <= toStr ? [fromStr, toStr] : [toStr, fromStr];
+    return allVideos.filter(v => {
+        const d = toLocalDateKey(v.liveDate);
+        return d >= from && d <= to;
+    });
+}
+
 function filterTable(subject, btn) {
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
-    const filtered = subject === 'all' ? allVideos : allVideos.filter(v => v.subject === subject);
+    const dateFiltered = getDateFilteredVideos();
+    const filtered = subject === 'all' ? dateFiltered : dateFiltered.filter(v => v.subject === subject);
     renderTable(filtered);
 }
 
@@ -1403,6 +1415,12 @@ function renderDailyAnalysis() {
         `;
     });
     listEl.innerHTML = html;
+
+    // Also sync the All Live Streams table to the same date range
+    const _activeBtn = document.querySelector('.filter-btn.active');
+    const _activeSubj = _activeBtn ? _activeBtn.dataset.filter : 'all';
+    const _df = getDateFilteredVideos();
+    renderTable(_activeSubj === 'all' ? _df : _df.filter(v => v.subject === _activeSubj));
 }
 
 // ── Super Pass Pitch Tracker ─────────────────────────────────────────────────
@@ -1668,8 +1686,11 @@ function renderSuperPassSection() {
 
     renderSpCompareChart(pitchTypeStats, avgNotPitched, notPitched.length);
     renderSpTimelineChart(pitched, tags, from, to);
-    // Keep table pitch column in sync whenever tags change
-    renderTable(allVideos);
+    // Keep table pitch column in sync — respect active date + subject filter
+    const _ab = document.querySelector('.filter-btn.active');
+    const _subj = _ab ? _ab.dataset.filter : 'all';
+    const _df = getDateFilteredVideos();
+    renderTable(_subj === 'all' ? _df : _df.filter(v => v.subject === _subj));
 }
 
 function renderSpCompareChart(pitchTypeStats, avgNP, cntNP) {
@@ -1808,7 +1829,10 @@ function sortTable(col) {
         return dir * (a[key] - b[key]);
     });
 
-    renderTable(allVideos);
+    const _ab2 = document.querySelector('.filter-btn.active');
+    const _subj2 = _ab2 ? _ab2.dataset.filter : 'all';
+    const _df2 = getDateFilteredVideos();
+    renderTable(_subj2 === 'all' ? _df2 : _df2.filter(v => v.subject === _subj2));
 }
 
 // ── Scraped live data (no API key needed) ──────────────────────────────────
