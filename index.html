@@ -472,17 +472,7 @@
     <span class="header-badge">1.1K+ Videos</span>
 </div>
 
-<!-- API controls (hidden — managed via localStorage) -->
-<div id="apiSetup" style="display:none;">
-    <div id="apiConnected"><span id="apiLastFetched"></span>
-        <button id="fetchBtn" onclick="fetchAllData()">Refresh</button>
-        <button onclick="disconnectApi()">Change Key</button>
-    </div>
-    <div id="apiSetupForm">
-        <input type="text" id="apiKeyInput">
-        <button id="fetchBtnForm" onclick="fetchAllData()">Fetch Data</button>
-    </div>
-</div>
+<!-- API key is hardcoded — no UI needed -->
 
 <!-- Status Bar -->
 <div class="status-bar" id="statusBar">
@@ -706,7 +696,7 @@
 
 <script>
 const CHANNEL_ID = 'UCvCAK_O_4gB4OvHr765ZuQg';
-let API_KEY = '';
+let API_KEY = 'AIzaSyDIqS23y8Ce2zkPkVtyKz1ZPvgU1r-f9zU';
 let allVideos = [];
 let chartInstances = {};
 
@@ -869,14 +859,9 @@ async function fetchVideoDetails(videoIds) {
 }
 
 async function fetchAllData(silent = false) {
-    const inputKey = document.getElementById('apiKeyInput').value.trim();
-    if (inputKey) API_KEY = inputKey;
-    if (!API_KEY) {
-        if (!silent) alert('Please enter your YouTube Data API key');
-        return;
-    }
+    if (!API_KEY) return;
 
-    const fetchBtn = document.getElementById('fetchBtn') || document.getElementById('fetchBtnForm');
+    const fetchBtn = document.getElementById('fetchBtn');
     if (fetchBtn) { fetchBtn.disabled = true; fetchBtn.textContent = 'Fetching...'; }
     if (!silent) showStatus('Fetching YouTube data...');
 
@@ -1893,54 +1878,34 @@ function loadScrapedData() {
     })).sort((a,b) => new Date(b.liveDate) - new Date(a.liveDate));
 }
 
-function showConnectedState(lastFetchedISO) { /* UI hidden — key managed in localStorage */ }
-function showSetupState() { /* UI hidden — key managed in localStorage */ }
+function showConnectedState() {}
+function showSetupState() {}
+function disconnectApi() {}
 
-function disconnectApi() {
-    localStorage.removeItem('nirmaan_api_key');
-    API_KEY = '';
-    document.getElementById('apiKeyInput').value = '';
-    showSetupState();
-}
-
-// On load: restore from localStorage or use scraped data
+// On load: show cached data instantly, then fetch fresh in background
 window.addEventListener('DOMContentLoaded', () => {
-    const savedKey = localStorage.getItem('nirmaan_api_key');
     const savedData = localStorage.getItem('nirmaan_data');
     const savedTime = localStorage.getItem('nirmaan_fetched');
 
-    if (savedKey) {
-        API_KEY = savedKey;
-        document.getElementById('apiKeyInput').value = savedKey;
-        showConnectedState(savedTime);
-
-        // Show cached data immediately while re-fetching in background
-        if (savedData) {
-            const parsed = JSON.parse(savedData);
-            if (parsed.length > 0) {
-                allVideos = parsed;
-                renderDashboard();
-            }
-        }
-
-        // Auto-refresh in background (silently)
-        fetchAllData(true);
-        return;
-    }
-
     if (savedData && savedTime) {
-        allVideos = JSON.parse(savedData);
-        if (allVideos.length > 0) {
+        const parsed = JSON.parse(savedData);
+        if (parsed.length > 0) {
+            allVideos = parsed;
             renderDashboard();
+            // Silently refresh in background
+            fetchAllData(true);
             return;
         }
     }
 
+    // No cache — show scraped data while fetching
+    fetchAllData(true);  // fetch immediately in background
+
     // Fall back to embedded scraped data
     allVideos = loadScrapedData();
     renderDashboard();
-    showStatus('Showing live-scraped data (Mar 16–25, 2026). Add API key above for full 3-month history.');
-    setTimeout(hideStatus, 8000);
+    showStatus('Fetching latest data from YouTube...');
+    setTimeout(hideStatus, 5000);
 });
 </script>
 
