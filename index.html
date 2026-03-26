@@ -1450,6 +1450,8 @@ async function syncTagsFromServer() {
             if (typeof renderTable === 'function') renderTable();
         }
     } catch (_) {}
+    // After loading stored tags, scan any new/pending videos silently
+    backgroundScanNew();
 }
 
 // Normalise any legacy format → { types: [...], customLabel: '' }
@@ -1462,39 +1464,36 @@ function normalizeTag(val) {
 }
 
 // ── Auto-Scan Pitches via pitch_server.py ────────────────────────────────────
-async function autoScanPitches() {
-    if (!allVideos.length) { alert('Load video data first.'); return; }
 
-    const btn = document.getElementById('spScanBtn');
-    const statusDiv = document.getElementById('spScanStatus');
-    const msgEl = document.getElementById('spScanMsg');
-    const barEl = document.getElementById('spScanBar');
+// Core scan worker — scans the given video list, updates tags, saves & re-renders.
+// silent=true → no UI updates (background scan); silent=false → shows progress bar.
+async function _runScan(videosToScan, silent = false) {
+    if (!videosToScan.length) return;
 
-    // Resolve API base — Render backend URL or same-origin (local dev)
     const SCAN_BASE = (window.PITCH_API_URL || '').replace(/\/$/, '');
+    const btn       = document.getElementById('spScanBtn');
+    const statusDiv = document.getElementById('spScanStatus');
+    const msgEl     = document.getElementById('spScanMsg');
+    const barEl     = document.getElementById('spScanBar');
 
-    // Check server is up
-    try {
-        await fetch(`${SCAN_BASE}/api/scan?ids=test`, {signal: AbortSignal.timeout(4000)});
-    } catch {
-        alert('⚠️ Pitch Scanner server not reachable.\n\nLocal: python3 /Users/cp/pitch_server.py\nDeployed: see README for Render setup.');
-        return;
+    if (!silent) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Scanning...';
+        statusDiv.style.display = 'block';
     }
 
-    btn.disabled = true;
-    btn.textContent = '⏳ Scanning...';
-    statusDiv.style.display = 'block';
-
     const BATCH = 3;
-    const videos = allVideos;
     const tags = getSpTags();
     let done = 0;
 
-    for (let i = 0; i < videos.length; i += BATCH) {
-        const batch = videos.slice(i, i + BATCH);
+    for (let i = 0; i < videosToScan.length; i += BATCH) {
+        const batch = videosToScan.slice(i, i + BATCH);
         const ids = batch.map(v => v.id).join(',');
-        msgEl.textContent = `Scanning transcripts… ${done}/${videos.length} done`;
-        barEl.style.width = Math.round((done / videos.length) * 100) + '%';
+
+        if (!silent) {
+            msgEl.textContent = `Scanning transcripts… ${done}/${videosToScan.length} done`;
+            barEl.style.width = Math.round((done / videosToScan.length) * 100) + '%';
+        }
 
         try {
             const resp = await fetch(`${SCAN_BASE}/api/scan?ids=${ids}`);
@@ -1502,20 +1501,17 @@ async function autoScanPitches() {
             if (data.results) {
                 data.results.forEach(r => {
                     if (r.pending) {
-                        // Captions not ready yet — mark as pending so table shows ⏳
-                        if (!tags[r.videoId]) {
-                            tags[r.videoId] = { types: [], customLabel: '', pending: true };
-                        } else {
-                            tags[r.videoId].pending = true;
-                        }
-                    } else if (r.types && r.types.length > 0) {
+                        tags[r.videoId] = { ...(tags[r.videoId] || {}), types: tags[r.videoId]?.types || [], customLabel: tags[r.videoId]?.customLabel || '', pending: true };
+                    } else {
+                        // Always update from scan result (clear stale pending flag)
                         const existing = normalizeTag(tags[r.videoId]);
-                        const mergedTypes = [...new Set([...(existing ? existing.types : []), ...r.types])];
+                        const mergedTypes = [...new Set([...(existing && existing.types || []), ...(r.types || [])])];
                         tags[r.videoId] = {
                             types: mergedTypes,
                             customLabel: existing ? existing.customLabel : '',
                             autoDetected: true,
                             pending: false,
+                            scanned: true,
                         };
                     }
                 });
@@ -1526,17 +1522,56 @@ async function autoScanPitches() {
         done += batch.length;
     }
 
-    barEl.style.width = '100%';
-    const pendingCount = Object.values(tags).filter(t => t && t.pending).length;
-    const detectedCount = Object.values(tags).filter(t => t && !t.pending && t.types && t.types.length > 0).length;
-    msgEl.textContent = `✅ Scan complete! ${detectedCount} pitched, ${pendingCount} ⏳ pending (captions not ready yet — re-scan tomorrow).`;
     saveSpTags(tags);
     renderSuperPassSection();
+    if (typeof renderTable === 'function') renderTable();
     if (spTaggingOpen) renderSpTagList();
 
-    btn.disabled = false;
-    btn.textContent = '🔍 Auto-Scan Pitches';
-    setTimeout(() => { statusDiv.style.display = 'none'; }, 4000);
+    if (!silent) {
+        barEl.style.width = '100%';
+        const pendingCount  = Object.values(tags).filter(t => t?.pending).length;
+        const detectedCount = Object.values(tags).filter(t => !t?.pending && t?.types?.length > 0).length;
+        msgEl.textContent = `✅ Done! ${detectedCount} pitched, ${pendingCount} ⏳ pending.`;
+        btn.disabled = false;
+        btn.textContent = '🔍 Auto-Scan Pitches';
+        setTimeout(() => { statusDiv.style.display = 'none'; }, 4000);
+    }
+}
+
+// Manual button — force re-scan ALL videos
+async function autoScanPitches() {
+    if (!allVideos.length) { alert('Load video data first.'); return; }
+    const SCAN_BASE = (window.PITCH_API_URL || '').replace(/\/$/, '');
+    try {
+        await fetch(`${SCAN_BASE}/api/scan?ids=test`, {signal: AbortSignal.timeout(4000)});
+    } catch {
+        alert('⚠️ Pitch Scanner server not reachable.');
+        return;
+    }
+    await _runScan(allVideos, false);
+}
+
+// Background scan — called automatically on page load.
+// Only scans videos that are NEW (never scanned) or still PENDING (captions weren't ready yet).
+async function backgroundScanNew() {
+    if (!allVideos.length) return;
+    const SCAN_BASE = (window.PITCH_API_URL || '').replace(/\/$/, '');
+    try {
+        await fetch(`${SCAN_BASE}/api/scan?ids=test`, {signal: AbortSignal.timeout(4000)});
+    } catch { return; } // server not reachable — skip silently
+
+    const tags = getSpTags();
+    const toScan = allVideos.filter(v => {
+        const t = tags[v.id];
+        if (!t) return true;              // never scanned
+        if (t.pending) return true;       // captions weren't ready last time — retry
+        return false;                     // already has a result — skip
+    });
+
+    if (toScan.length > 0) {
+        console.log(`[PitchScan] Auto-scanning ${toScan.length} new/pending videos in background…`);
+        await _runScan(toScan, true);
+    }
 }
 
 let spTaggingOpen = false;
