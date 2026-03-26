@@ -50,29 +50,6 @@
             backdrop-filter: blur(10px);
         }
 
-        /* API Key Setup */
-        .api-setup {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            margin: 20px 30px;
-            padding: 24px;
-        }
-        .api-setup h3 { margin-bottom: 12px; color: var(--accent); }
-        .api-setup .input-row {
-            display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;
-        }
-        .api-setup input[type="text"] {
-            flex: 1; min-width: 250px;
-            padding: 10px 16px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-size: 14px;
-            outline: none;
-        }
-        .api-setup input:focus { border-color: var(--accent); }
         .btn {
             padding: 10px 24px;
             background: var(--accent);
@@ -87,21 +64,6 @@
         .btn:hover { opacity: 0.85; transform: translateY(-1px); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-secondary { background: var(--accent2); }
-        .api-instructions {
-            background: var(--bg);
-            border-radius: 8px;
-            padding: 14px;
-            font-size: 13px;
-            color: var(--text-dim);
-            line-height: 1.8;
-        }
-        .api-instructions ol { padding-left: 20px; }
-        .api-instructions a { color: var(--accent); text-decoration: none; }
-        .api-instructions code {
-            background: rgba(233,69,96,0.15);
-            padding: 2px 6px; border-radius: 4px;
-            color: var(--accent); font-size: 12px;
-        }
 
         /* Status bar */
         .status-bar {
@@ -510,36 +472,16 @@
     <span class="header-badge">1.1K+ Videos</span>
 </div>
 
-<!-- API Key Setup -->
-<div class="api-setup" id="apiSetup">
-    <!-- Connected state (shown when key is saved) -->
-    <div id="apiConnected" class="hidden" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <span style="color:var(--success);font-weight:600;font-size:13px;">✅ YouTube API Connected</span>
-        <span id="apiLastFetched" style="color:var(--text-dim);font-size:12px;"></span>
-        <button class="btn" id="fetchBtn" onclick="fetchAllData()" style="font-size:12px;padding:6px 14px;">🔄 Refresh Now</button>
-        <button class="btn btn-secondary" onclick="disconnectApi()" style="font-size:12px;padding:6px 12px;">Change Key</button>
+<!-- API controls (hidden — managed via localStorage) -->
+<div id="apiSetup" style="display:none;">
+    <div id="apiConnected"><span id="apiLastFetched"></span>
+        <button id="fetchBtn" onclick="fetchAllData()">Refresh</button>
+        <button onclick="disconnectApi()">Change Key</button>
     </div>
-    <!-- Setup state (shown when no key) -->
     <div id="apiSetupForm">
-    <h3>Connect YouTube Data API</h3>
-    <div class="input-row">
-        <input type="text" id="apiKeyInput" placeholder="Paste your YouTube Data API v3 key here...">
-        <button class="btn" id="fetchBtnForm" onclick="fetchAllData()">Fetch Data</button>
-        <button class="btn btn-secondary" onclick="toggleInstructions()">How to get API Key</button>
+        <input type="text" id="apiKeyInput">
+        <button id="fetchBtnForm" onclick="fetchAllData()">Fetch Data</button>
     </div>
-    <div class="api-instructions hidden" id="apiInstructions">
-        <ol>
-            <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
-            <li>Create a new project (or select existing one)</li>
-            <li>Go to <strong>APIs & Services</strong> &rarr; <strong>Library</strong></li>
-            <li>Search for <code>YouTube Data API v3</code> and <strong>Enable</strong> it</li>
-            <li>Go to <strong>APIs & Services</strong> &rarr; <strong>Credentials</strong></li>
-            <li>Click <strong>Create Credentials</strong> &rarr; <strong>API Key</strong></li>
-            <li>Copy the key and paste it above</li>
-        </ol>
-        <p style="margin-top:10px;">The API is <strong>free</strong> with a daily quota of 10,000 units (more than enough for this dashboard).</p>
-    </div>
-    </div><!-- /apiSetupForm -->
 </div>
 
 <!-- Status Bar -->
@@ -1927,23 +1869,8 @@ function loadScrapedData() {
     })).sort((a,b) => new Date(b.liveDate) - new Date(a.liveDate));
 }
 
-function showConnectedState(lastFetchedISO) {
-    document.getElementById('apiSetupForm').classList.add('hidden');
-    const connEl = document.getElementById('apiConnected');
-    connEl.classList.remove('hidden');
-    connEl.style.display = 'flex';
-    if (lastFetchedISO) {
-        const mins = Math.round((Date.now() - new Date(lastFetchedISO).getTime()) / 60000);
-        const label = mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago`;
-        document.getElementById('apiLastFetched').textContent = `Last refreshed: ${label}`;
-    }
-}
-
-function showSetupState() {
-    document.getElementById('apiConnected').classList.add('hidden');
-    document.getElementById('apiConnected').style.display = 'none';
-    document.getElementById('apiSetupForm').classList.remove('hidden');
-}
+function showConnectedState(lastFetchedISO) { /* UI hidden — key managed in localStorage */ }
+function showSetupState() { /* UI hidden — key managed in localStorage */ }
 
 function disconnectApi() {
     localStorage.removeItem('nirmaan_api_key');
