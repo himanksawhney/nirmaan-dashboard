@@ -1418,10 +1418,39 @@ const SP_TYPES = {
 };
 
 // Storage: { [videoId]: { types: ['trial','pass999',...], customLabel: string } }
+// Tags are stored in localStorage AND synced to the Render backend so they
+// persist across devices / fresh browser sessions.
+
+const TAG_API = (window.PITCH_API_URL || '').replace(/\/$/, '') + '/api/tags';
+
 function getSpTags() {
     try { return JSON.parse(localStorage.getItem('nirmaan_sp_tags') || '{}'); } catch { return {}; }
 }
-function saveSpTags(tags) { localStorage.setItem('nirmaan_sp_tags', JSON.stringify(tags)); }
+function saveSpTags(tags) {
+    localStorage.setItem('nirmaan_sp_tags', JSON.stringify(tags));
+    // Fire-and-forget sync to server
+    fetch(TAG_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tags),
+    }).catch(() => {});
+}
+
+// Load tags from server on startup, merge into localStorage (server wins for new keys)
+async function syncTagsFromServer() {
+    try {
+        const resp = await fetch(TAG_API, { signal: AbortSignal.timeout(5000) });
+        if (!resp.ok) return;
+        const serverTags = await resp.json();
+        if (serverTags && typeof serverTags === 'object' && Object.keys(serverTags).length > 0) {
+            const local = getSpTags();
+            const merged = { ...local, ...serverTags };
+            localStorage.setItem('nirmaan_sp_tags', JSON.stringify(merged));
+            renderSuperPassSection();
+            if (typeof renderTable === 'function') renderTable();
+        }
+    } catch (_) {}
+}
 
 // Normalise any legacy format → { types: [...], customLabel: '' }
 function normalizeTag(val) {
@@ -1882,7 +1911,7 @@ function showConnectedState() {}
 function showSetupState() {}
 function disconnectApi() {}
 
-// On load: show cached data instantly, then fetch fresh in background
+// On load: show cached data instantly, sync tags from server, then fetch fresh
 window.addEventListener('DOMContentLoaded', () => {
     const savedData = localStorage.getItem('nirmaan_data');
     const savedTime = localStorage.getItem('nirmaan_fetched');
@@ -1892,18 +1921,18 @@ window.addEventListener('DOMContentLoaded', () => {
         if (parsed.length > 0) {
             allVideos = parsed;
             renderDashboard();
-            // Silently refresh in background
-            fetchAllData(true);
+            syncTagsFromServer();       // load server-side pitch tags
+            fetchAllData(true);         // refresh video data in background
             return;
         }
     }
 
     // No cache — show scraped data while fetching
-    fetchAllData(true);  // fetch immediately in background
+    fetchAllData(true);
 
-    // Fall back to embedded scraped data
     allVideos = loadScrapedData();
     renderDashboard();
+    syncTagsFromServer();               // load server-side pitch tags
     showStatus('Fetching latest data from YouTube...');
     setTimeout(hideStatus, 5000);
 });

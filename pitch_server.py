@@ -20,6 +20,8 @@ from pathlib import Path
 
 SERVE_DIR = Path(__file__).parent
 PORT = int(os.environ.get("PORT", 8766))
+TAGS_FILE = SERVE_DIR / "tags.json"
+_tags_lock = threading.Lock()
 
 # ── Pitch keyword patterns ────────────────────────────────────────────────────
 PITCH_PATTERNS = {
@@ -136,6 +138,22 @@ def scan_video(video_id):
             return {"videoId": video_id, "types": [], "pending": False, "error": str(e)}
 
 
+# ── Tag persistence ──────────────────────────────────────────────────────────
+
+def load_tags():
+    with _tags_lock:
+        if TAGS_FILE.exists():
+            try:
+                return json.loads(TAGS_FILE.read_text("utf-8"))
+            except Exception:
+                return {}
+        return {}
+
+def save_tags(data):
+    with _tags_lock:
+        TAGS_FILE.write_text(json.dumps(data), "utf-8")
+
+
 # ── HTTP Server ───────────────────────────────────────────────────────────────
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -144,11 +162,34 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
-
         if parsed.path == "/api/scan":
             self._handle_scan(parsed.query)
+        elif parsed.path == "/api/tags":
+            self._json_response(load_tags())
         else:
             super().do_GET()
+
+    def do_POST(self):
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/api/tags":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body)
+                save_tags(data)
+                self._json_response({"ok": True})
+            except Exception as e:
+                self._json_response({"error": str(e)}, 400)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
     def _handle_scan(self, query_string):
         params = urllib.parse.parse_qs(query_string)
