@@ -1,0 +1,1945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nirmaan Gujarat Exams - YouTube Live Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0f0f1a;
+            --card: #1a1a2e;
+            --card-hover: #1e1e35;
+            --accent: #e94560;
+            --accent2: #0f3460;
+            --text: #eaeaea;
+            --text-dim: #8892a0;
+            --success: #00c897;
+            --warning: #f9a825;
+            --border: #2a2a45;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 50%, #e94560 100%);
+            padding: 30px 40px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .header img {
+            width: 70px; height: 70px; border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+        .header-info h1 { font-size: 24px; font-weight: 700; }
+        .header-info p { color: rgba(255,255,255,0.75); font-size: 14px; margin-top: 2px; }
+        .header-badge {
+            background: rgba(255,255,255,0.15);
+            padding: 4px 12px; border-radius: 20px;
+            font-size: 12px; color: #fff;
+            backdrop-filter: blur(10px);
+        }
+
+        /* API Key Setup */
+        .api-setup {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin: 20px 30px;
+            padding: 24px;
+        }
+        .api-setup h3 { margin-bottom: 12px; color: var(--accent); }
+        .api-setup .input-row {
+            display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;
+        }
+        .api-setup input[type="text"] {
+            flex: 1; min-width: 250px;
+            padding: 10px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+        }
+        .api-setup input:focus { border-color: var(--accent); }
+        .btn {
+            padding: 10px 24px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary { background: var(--accent2); }
+        .api-instructions {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 13px;
+            color: var(--text-dim);
+            line-height: 1.8;
+        }
+        .api-instructions ol { padding-left: 20px; }
+        .api-instructions a { color: var(--accent); text-decoration: none; }
+        .api-instructions code {
+            background: rgba(233,69,96,0.15);
+            padding: 2px 6px; border-radius: 4px;
+            color: var(--accent); font-size: 12px;
+        }
+
+        /* Status bar */
+        .status-bar {
+            margin: 0 30px;
+            padding: 10px 16px;
+            background: var(--card);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-dim);
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-bar.visible { display: flex; }
+        .status-bar .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Dashboard Grid */
+        .dashboard { padding: 20px 30px; }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .summary-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.2s;
+        }
+        .summary-card:hover { background: var(--card-hover); transform: translateY(-2px); }
+        .summary-card .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+        .summary-card .value { font-size: 32px; font-weight: 700; margin: 8px 0 4px; }
+        .summary-card .sub { font-size: 13px; color: var(--text-dim); }
+        .card-red .value { color: var(--accent); }
+        .card-green .value { color: var(--success); }
+        .card-yellow .value { color: var(--warning); }
+        .card-blue .value { color: #4fc3f7; }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+        .chart-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .chart-card h3 { font-size: 15px; margin-bottom: 16px; color: var(--text-dim); }
+        .chart-card canvas { max-height: 300px; }
+
+        /* Subject Performance */
+        .subject-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .subject-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s;
+        }
+        .subject-card:hover { background: var(--card-hover); }
+        .subject-icon {
+            width: 48px; height: 48px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .subject-info { flex: 1; }
+        .subject-info h4 { font-size: 15px; margin-bottom: 4px; }
+        .subject-info .stats { font-size: 12px; color: var(--text-dim); }
+        .subject-bar {
+            height: 4px; background: var(--border); border-radius: 2px; margin-top: 8px;
+        }
+        .subject-bar-fill {
+            height: 100%; border-radius: 2px;
+            transition: width 0.6s ease;
+        }
+
+        /* Video Table */
+        .table-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        .table-header {
+            padding: 16px 20px;
+            display: flex; justify-content: space-between;
+            align-items: center; flex-wrap: wrap; gap: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .table-header h3 { font-size: 16px; }
+        .table-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+        .filter-btn {
+            padding: 6px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .filter-btn.active, .filter-btn:hover {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .table-wrap { overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        th:hover { color: var(--text); }
+        td {
+            padding: 12px 16px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        tr:hover td { background: rgba(233,69,96,0.05); }
+        .tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .tag-history { background: rgba(233,69,96,0.15); color: #e94560; }
+        .tag-maths { background: rgba(0,200,151,0.15); color: #00c897; }
+        .tag-reasoning { background: rgba(79,195,247,0.15); color: #4fc3f7; }
+        .tag-english { background: rgba(249,168,37,0.15); color: #f9a825; }
+        .tag-gujarati { background: rgba(171,71,188,0.15); color: #ab47bc; }
+        .tag-gk { background: rgba(255,167,38,0.15); color: #ffa726; }
+        .tag-science { background: rgba(38,198,218,0.15); color: #26c6da; }
+        .tag-geography { background: rgba(102,187,106,0.15); color: #66bb6a; }
+        .tag-polity { background: rgba(239,83,80,0.15); color: #ef5350; }
+        .tag-economics { background: rgba(255,213,79,0.15); color: #ffd54f; }
+        .tag-gcert { background: rgba(78,205,196,0.15); color: #4ecdc4; }
+        .tag-current-affairs { background: rgba(255,138,101,0.15); color: #ff8a65; }
+        .tag-other { background: rgba(136,146,160,0.15); color: #8892a0; }
+
+        .views-good { color: var(--success); font-weight: 600; }
+        .views-avg { color: var(--warning); }
+        .views-low { color: var(--text-dim); }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-dim);
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+        .empty-state h3 { margin-bottom: 8px; color: var(--text); }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-dim);
+            font-size: 12px;
+        }
+
+        /* Date range picker */
+        .date-range {
+            display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+        }
+        .date-range label { font-size: 13px; color: var(--text-dim); }
+        .date-range input[type="date"] {
+            padding: 8px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 13px;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Daily Analysis */
+        .daily-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 22px 24px;
+            margin-bottom: 24px;
+        }
+        .daily-section h3 {
+            font-size: 16px; margin-bottom: 16px;
+        }
+        .daily-controls {
+            display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px;
+        }
+        .daily-controls label { font-size: 13px; color: var(--text-dim); white-space: nowrap; }
+        .daily-controls input[type="date"] {
+            padding: 9px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .daily-controls input[type="date"]:focus { outline: none; border-color: var(--accent); }
+        .daily-stat-row {
+            display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 18px;
+        }
+        .daily-stat {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 20px;
+            min-width: 150px;
+        }
+        .daily-stat .ds-label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+        .daily-stat .ds-value { font-size: 28px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+        .daily-stat .ds-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+        .daily-video-list { display: flex; flex-direction: column; gap: 8px; }
+        .daily-video-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+            transition: border-color 0.2s;
+        }
+        .daily-video-item:hover { border-color: var(--accent); }
+        .dv-num { font-size: 18px; font-weight: 700; color: var(--text-dim); min-width: 28px; }
+        .dv-info { flex: 1; min-width: 200px; }
+        .dv-info a { color: var(--text); text-decoration: none; font-size: 14px; font-weight: 500; }
+        .dv-info a:hover { color: var(--accent); }
+        .dv-meta { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+        .dv-views { font-size: 20px; font-weight: 700; color: var(--success); white-space: nowrap; }
+        .dv-views span { font-size: 11px; color: var(--text-dim); display: block; font-weight: 400; }
+        .daily-empty { color: var(--text-dim); font-size: 14px; padding: 20px 0; }
+
+        /* Super Pass Section */
+        .sp-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border-left: 3px solid #a855f7;
+        }
+        .sp-header {
+            display: flex; justify-content: space-between;
+            align-items: flex-start; flex-wrap: wrap; gap: 12px;
+            margin-bottom: 20px;
+        }
+        .sp-header h3 { font-size: 17px; margin-bottom: 4px; }
+        .sp-sub { font-size: 13px; color: var(--text-dim); }
+        .sp-header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .sp-range-badge {
+            padding: 4px 12px; border-radius: 20px;
+            background: rgba(168,85,247,0.15);
+            color: #a855f7; font-size: 12px;
+            border: 1px solid rgba(168,85,247,0.3);
+        }
+        .sp-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px; margin-bottom: 20px;
+        }
+        .sp-card {
+            border-radius: 10px; padding: 16px;
+            border: 1px solid var(--border);
+        }
+        .sp-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .sp-card-value { font-size: 28px; font-weight: 700; margin: 6px 0 3px; }
+        .sp-card-sub { font-size: 12px; color: var(--text-dim); }
+        .sp-card-purple { background: rgba(168,85,247,0.08); border-color: rgba(168,85,247,0.2); }
+        .sp-card-purple .sp-card-value { color: #a855f7; }
+        .sp-card-green { background: rgba(0,200,151,0.08); border-color: rgba(0,200,151,0.2); }
+        .sp-card-green .sp-card-value { color: #00c897; }
+        .sp-card-blue { background: rgba(79,195,247,0.08); border-color: rgba(79,195,247,0.2); }
+        .sp-card-blue .sp-card-value { color: #4fc3f7; }
+        .sp-card-yellow { background: rgba(249,168,37,0.08); border-color: rgba(249,168,37,0.2); }
+        .sp-card-yellow .sp-card-value { color: #f9a825; }
+        .sp-card-red { background: rgba(233,69,96,0.08); border-color: rgba(233,69,96,0.2); }
+        .sp-card-red .sp-card-value { color: #e94560; }
+
+        .sp-body {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 16px; margin-bottom: 16px;
+        }
+        @media (max-width: 800px) { .sp-body { grid-template-columns: 1fr; } }
+        .sp-chart-card {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 10px; padding: 16px;
+        }
+        .sp-chart-card h4 { font-size: 13px; color: var(--text-dim); margin-bottom: 12px; }
+
+        /* Tagging list */
+        .sp-tag-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 14px; border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+        .sp-tag-item:hover { background: rgba(168,85,247,0.05); }
+        .sp-tag-item input[type="checkbox"] { width: 17px; height: 17px; accent-color: #a855f7; cursor: pointer; flex-shrink: 0; }
+        .sp-tag-item .sp-tag-title { flex: 1; font-size: 13px; }
+        .sp-tag-item .sp-tag-title a { color: var(--text); text-decoration: none; }
+        .sp-tag-item .sp-tag-title a:hover { color: #a855f7; }
+        .sp-tag-item .sp-tag-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+        .sp-tag-item .sp-tag-views { font-size: 13px; font-weight: 600; color: var(--success); white-space: nowrap; }
+        .sp-tag-item.is-pitched { background: rgba(168,85,247,0.07); }
+        .sp-pitched-badge {
+            font-size: 10px; padding: 2px 8px; border-radius: 10px;
+            background: rgba(168,85,247,0.2); color: #a855f7;
+            border: 1px solid rgba(168,85,247,0.3); white-space: nowrap;
+        }
+
+        /* Pitch type selector */
+        .sp-type-selector {
+            display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
+            margin-left: 4px;
+        }
+        .sp-type-btn {
+            padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600;
+            border: 1px solid transparent; cursor: pointer; transition: all 0.15s;
+            background: var(--bg); color: var(--text-dim); white-space: nowrap;
+        }
+        .sp-type-btn:hover { opacity: 0.85; }
+        .sp-type-btn.active-trial   { background: rgba(168,85,247,0.25); color: #a855f7; border-color: rgba(168,85,247,0.5); }
+        .sp-type-btn.active-pass999 { background: rgba(0,200,151,0.25);  color: #00c897; border-color: rgba(0,200,151,0.5); }
+        .sp-type-btn.active-pass499 { background: rgba(79,195,247,0.25); color: #4fc3f7; border-color: rgba(79,195,247,0.5); }
+        .sp-type-btn.active-custom  { background: rgba(249,115,22,0.25); color: #f97316; border-color: rgba(249,115,22,0.5); }
+        .sp-custom-label-input {
+            font-size: 10px; padding: 2px 6px; border-radius: 6px;
+            background: var(--bg); border: 1px solid rgba(249,115,22,0.4);
+            color: var(--text); width: 90px; outline: none;
+        }
+        .sp-custom-label-input:focus { border-color: #f97316; }
+
+        /* Pitch type badges */
+        .sp-type-badge {
+            font-size: 10px; padding: 2px 8px; border-radius: 10px;
+            font-weight: 600; white-space: nowrap; border: 1px solid transparent;
+        }
+        .sp-type-badge-trial   { background: rgba(168,85,247,0.2); color: #a855f7; border-color: rgba(168,85,247,0.4); }
+        .sp-type-badge-pass999 { background: rgba(0,200,151,0.2);  color: #00c897; border-color: rgba(0,200,151,0.4); }
+        .sp-type-badge-pass499 { background: rgba(79,195,247,0.2); color: #4fc3f7; border-color: rgba(79,195,247,0.4); }
+        .sp-type-badge-custom  { background: rgba(249,115,22,0.2); color: #f97316; border-color: rgba(249,115,22,0.4); }
+
+        /* Orange card */
+        .sp-card-orange { background: rgba(249,115,22,0.08); border-color: rgba(249,115,22,0.2); }
+        .sp-card-orange .sp-card-value { color: #f97316; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+    <img src="https://yt3.googleusercontent.com/ytc/AIdro_lDkCpQ3IuJNjX_Ff8XOVK7J1Jb8Kq_0h7eI-7m8NJdJsk=s176-c-k-c0x00ffffff-no-rj"
+         alt="Nirmaan Gujarat Exams" onerror="this.style.display='none'">
+    <div class="header-info">
+        <h1>Nirmaan Gujarat Exams</h1>
+        <p>@NirmaanGujaratExams &bull; YouTube Live Stream Dashboard</p>
+    </div>
+    <span class="header-badge">83.7K Subscribers</span>
+    <span class="header-badge">1.1K+ Videos</span>
+</div>
+
+<!-- API Key Setup -->
+<div class="api-setup" id="apiSetup">
+    <h3>Connect YouTube Data API</h3>
+    <div class="input-row">
+        <input type="text" id="apiKeyInput" placeholder="Paste your YouTube Data API v3 key here...">
+        <button class="btn" id="fetchBtn" onclick="fetchAllData()">Fetch Data</button>
+        <button class="btn btn-secondary" onclick="toggleInstructions()">How to get API Key</button>
+    </div>
+    <div class="api-instructions hidden" id="apiInstructions">
+        <ol>
+            <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+            <li>Create a new project (or select existing one)</li>
+            <li>Go to <strong>APIs & Services</strong> &rarr; <strong>Library</strong></li>
+            <li>Search for <code>YouTube Data API v3</code> and <strong>Enable</strong> it</li>
+            <li>Go to <strong>APIs & Services</strong> &rarr; <strong>Credentials</strong></li>
+            <li>Click <strong>Create Credentials</strong> &rarr; <strong>API Key</strong></li>
+            <li>Copy the key and paste it above</li>
+        </ol>
+        <p style="margin-top:10px;">The API is <strong>free</strong> with a daily quota of 10,000 units (more than enough for this dashboard).</p>
+    </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar" id="statusBar">
+    <div class="spinner"></div>
+    <span id="statusText">Fetching data...</span>
+</div>
+
+<!-- Dashboard Content -->
+<div class="dashboard hidden" id="dashboardContent">
+
+    <!-- Summary Cards -->
+    <div class="summary-cards" id="summaryCards">
+        <div class="summary-card card-red">
+            <div class="label">Total Live Streams</div>
+            <div class="value" id="totalStreams">0</div>
+            <div class="sub" id="totalStreamsSub">Last 3 months</div>
+        </div>
+        <div class="summary-card card-blue">
+            <div class="label">Avg. Streams / Week</div>
+            <div class="value" id="avgPerWeek">0</div>
+            <div class="sub" id="avgPerWeekSub">-</div>
+        </div>
+        <div class="summary-card card-green">
+            <div class="label">Total Views</div>
+            <div class="value" id="totalViews">0</div>
+            <div class="sub" id="totalViewsSub">All live streams</div>
+        </div>
+        <div class="summary-card card-yellow">
+            <div class="label">Avg. Views / Stream</div>
+            <div class="value" id="avgViews">0</div>
+            <div class="sub" id="avgViewsSub">-</div>
+        </div>
+        <div class="summary-card card-green">
+            <div class="label">Top Subject</div>
+            <div class="value" id="topSubject" style="font-size:22px;">-</div>
+            <div class="sub" id="topSubjectSub">By total views</div>
+        </div>
+        <div class="summary-card card-blue">
+            <div class="label">Avg. Duration</div>
+            <div class="value" id="avgDuration" style="font-size:26px;">-</div>
+            <div class="sub" id="avgDurationSub">Per live stream</div>
+        </div>
+    </div>
+
+    <!-- Daily Live Analysis -->
+    <div class="daily-section">
+        <h3>&#128197; Daily Live Analysis</h3>
+        <div class="daily-controls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">From :</label>
+            <input type="date" id="dailyFromPicker" onchange="renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList();"
+                style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
+            <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">To :</label>
+            <input type="date" id="dailyToPicker" onchange="renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList();"
+                style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
+            <span id="dailyRangeLabel"
+                style="font-size:12px;color:var(--text-dim);padding:4px 12px;background:rgba(233,69,96,0.1);border-radius:20px;border:1px solid rgba(233,69,96,0.2);">
+            </span>
+        </div>
+        <div class="daily-stat-row" id="dailyStats"></div>
+        <div class="daily-video-list" id="dailyVideoList">
+            <div class="daily-empty">Select a date range to see live stream analytics.</div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>Live Streams Per Week</h3>
+            <canvas id="weeklyChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Views by Subject</h3>
+            <canvas id="subjectChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+                <h3 style="margin:0;">Views Over Time</h3>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <select id="viewsSubjectFilter" onchange="renderViewsTimeChart()"
+                        style="padding:5px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;cursor:pointer;">
+                        <option value="all">All Subjects</option>
+                    </select>
+                    <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+                        <button id="toggleWeekly" onclick="setViewMode('weekly')"
+                            style="padding:5px 12px;background:var(--accent);color:#fff;border:none;font-size:12px;cursor:pointer;">Weekly</button>
+                        <button id="togglePerStream" onclick="setViewMode('perstream')"
+                            style="padding:5px 12px;background:var(--bg);color:var(--text-dim);border:none;font-size:12px;cursor:pointer;">Per Stream</button>
+                    </div>
+                </div>
+            </div>
+            <canvas id="viewsTimeChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Stream Count by Subject</h3>
+            <canvas id="subjectCountChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Subject Performance -->
+    <h3 style="margin-bottom:16px; font-size:16px; color:var(--text-dim);">Subject Performance Breakdown</h3>
+    <div class="subject-grid" id="subjectGrid"></div>
+
+    <!-- Super Pass Pitch Tracker -->
+    <div class="sp-section" id="superPassSection">
+        <div class="sp-header">
+            <div>
+                <h3>&#127919; Nirmaan Super Pass — Pitch Tracker</h3>
+                <p class="sp-sub">Tag live streams where Super Pass was pitched &amp; track effectiveness by offer type</p>
+            </div>
+            <div class="sp-header-actions">
+                <span id="spRangeLabel" class="sp-range-badge">All streams</span>
+                <button class="btn" onclick="autoScanPitches()" id="spScanBtn" style="background:#0f3460;font-size:12px;padding:8px 14px;">&#128269; Auto-Scan Pitches</button>
+                <button class="btn btn-secondary" onclick="toggleSpTagging()" id="spTagBtn">&#9998; Manual Tag</button>
+                <button class="btn" onclick="clearSpTags()" style="background:#333;font-size:12px;padding:8px 14px;">Clear All Tags</button>
+            </div>
+        </div>
+
+        <!-- Auto-scan progress bar -->
+        <div id="spScanStatus" style="display:none; margin:12px 0; padding:12px 16px; background:rgba(15,52,96,0.4); border:1px solid #0f3460; border-radius:8px; font-size:13px; color:var(--text-dim);">
+            <span id="spScanMsg">Scanning transcripts...</span>
+            <div style="margin-top:8px; background:var(--bg); border-radius:4px; height:6px; overflow:hidden;">
+                <div id="spScanBar" style="height:100%; width:0%; background:var(--accent); transition:width 0.3s;"></div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="sp-cards" id="spCards">
+            <div class="sp-card sp-card-purple">
+                <div class="sp-card-label">Pitched Streams</div>
+                <div class="sp-card-value" id="spCount">0</div>
+                <div class="sp-card-sub" id="spCountSub">of 0 total</div>
+            </div>
+            <div class="sp-card sp-card-green">
+                <div class="sp-card-label">Total Reach (Views)</div>
+                <div class="sp-card-value" id="spViews">0</div>
+                <div class="sp-card-sub">on pitched streams</div>
+            </div>
+            <div class="sp-card sp-card-blue">
+                <div class="sp-card-label">Avg Views — Pitched</div>
+                <div class="sp-card-value" id="spAvgPitched">0</div>
+                <div class="sp-card-sub" id="spAvgPitchedSub">per stream</div>
+            </div>
+            <div class="sp-card sp-card-yellow">
+                <div class="sp-card-label">Avg Views — Not Pitched</div>
+                <div class="sp-card-value" id="spAvgNonPitched">0</div>
+                <div class="sp-card-sub" id="spAvgNonPitchedSub">per stream</div>
+            </div>
+            <div class="sp-card sp-card-red">
+                <div class="sp-card-label">Pitch Rate</div>
+                <div class="sp-card-value" id="spRate">0%</div>
+                <div class="sp-card-sub">of streams had pitch</div>
+            </div>
+            <div class="sp-card sp-card-orange">
+                <div class="sp-card-label">Top Pitch Type</div>
+                <div class="sp-card-value" id="spTopType" style="font-size:16px;line-height:1.3;">—</div>
+                <div class="sp-card-sub" id="spTopTypeSub">most used offer</div>
+            </div>
+        </div>
+
+        <!-- Chart + Tag List Row -->
+        <div class="sp-body">
+            <div class="sp-chart-card">
+                <h4>Avg Views by Pitch Type</h4>
+                <canvas id="spCompareChart" style="max-height:220px;"></canvas>
+            </div>
+            <div class="sp-chart-card">
+                <h4>Pitch Frequency Over Time</h4>
+                <canvas id="spTimelineChart" style="max-height:220px;"></canvas>
+            </div>
+        </div>
+
+        <!-- Tagging list (hidden until toggled) -->
+        <div id="spTaggingArea" style="display:none; margin-top:16px;">
+            <div style="padding:12px 16px; background:rgba(233,69,96,0.08); border-radius:8px; margin-bottom:12px; font-size:13px; color:var(--text-dim);">
+                ✅ Check streams where a Super Pass offer was pitched, then select the <strong style="color:var(--text)">pitch type</strong>. Tags are saved automatically.
+            </div>
+            <div id="spTagList"></div>
+        </div>
+    </div>
+
+    <!-- Video Table -->
+    <div class="table-section">
+        <div class="table-header">
+            <h3>All Live Streams</h3>
+            <div class="table-filters" id="subjectFilters">
+                <button class="filter-btn active" data-filter="all" onclick="filterTable('all', this)">All</button>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th onclick="sortTable(0)">Date</th>
+                        <th onclick="sortTable(1)">Title</th>
+                        <th onclick="sortTable(2)">Subject</th>
+                        <th onclick="sortTable(3)">Views</th>
+                        <th onclick="sortTable(4)">Likes</th>
+                        <th onclick="sortTable(5)">Duration</th>
+                        <th onclick="sortTable(6)">Comments</th>
+                        <th style="white-space:nowrap;">Pitch</th>
+                    </tr>
+                </thead>
+                <tbody id="videoTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Empty State -->
+<div class="empty-state" id="emptyState">
+    <div class="icon">&#128250;</div>
+    <h3>Enter your API Key to load dashboard</h3>
+    <p>Connect your YouTube Data API key above to fetch live stream analytics</p>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+    Nirmaan Gujarat Exams &bull; YouTube Live Stream Dashboard &bull; Data via YouTube Data API v3
+</div>
+
+<script>
+const CHANNEL_ID = 'UCvCAK_O_4gB4OvHr765ZuQg';
+let API_KEY = '';
+let allVideos = [];
+let chartInstances = {};
+
+// Subject detection from video titles
+const SUBJECT_PATTERNS = [
+    { name: 'History', keywords: ['history', 'ઈતિહાસ', 'ઇતિહાસ', 'ભક્તિ', 'સૂફી', 'મુઘલ', 'મરાઠા', 'ગુપ્ત', 'મૌર્ય', 'સલ્તનત', 'આંદોલન'], color: '#e94560', icon: '&#128218;' },
+    { name: 'Maths', keywords: ['maths', 'math', 'ગણિત', 'reasoning', 'number', 'algebra', 'arithmetic', 'પૂર્ણવર્ગ'], color: '#00c897', icon: '&#128290;' },
+    { name: 'Reasoning', keywords: ['reasoning', 'logic', 'blood relation', 'analogy', 'series', 'coding decoding', 'તર્ક'], color: '#4fc3f7', icon: '&#129504;' },
+    { name: 'English', keywords: ['english', 'grammar', 'phrasal verb', 'tense', 'voice', 'passive', 'vocabulary', 'article'], color: '#f9a825', icon: '&#127468;' },
+    { name: 'Gujarati', keywords: ['ગુજરાતી', 'વ્યાકરણ', 'શબ્દભંડોળ', 'નિબંધ', 'પત્રલેખન', 'છંદ', 'અલંકાર', 'સમાનાર્થી'], color: '#ab47bc', icon: '&#128196;' },
+    { name: 'GK', keywords: ['gk', 'general knowledge', 'સામાન્ય જ્ઞાન', 'jakkas', 'quiz', 'gk quiz'], color: '#ffa726', icon: '&#127758;' },
+    { name: 'Science', keywords: ['science', 'વિજ્ઞાન', 'physics', 'chemistry', 'biology', 'ભૌતિક', 'રસાયણ', 'જીવ'], color: '#26c6da', icon: '&#128300;' },
+    { name: 'Geography', keywords: ['geography', 'ભૂગોળ', 'map', 'નકશો', 'rivers', 'નદી', 'tiger reserve', 'forest'], color: '#66bb6a', icon: '&#127757;' },
+    { name: 'Polity', keywords: ['polity', 'રાજ્યવ્યવસ્થા', 'constitution', 'સંવિધાન', 'law', 'કાયદો', 'amendment', 'parliament'], color: '#ef5350', icon: '&#9878;' },
+    { name: 'Economics', keywords: ['economics', 'અર્થશાસ્ત્ર', 'economy', 'budget', 'tax', 'fiscal', 'gdp'], color: '#ffd54f', icon: '&#128176;' },
+    { name: 'GCERT', keywords: ['gcert', 'ધોરણ', 'ncert', 'textbook', 'super test'], color: '#4ecdc4', icon: '&#128214;' },
+    { name: 'Current Affairs', keywords: ['current affairs', 'current', 'સમાચાર', 'news', 'daily'], color: '#ff8a65', icon: '&#128240;' },
+];
+
+function detectSubject(title) {
+    const lowerTitle = title.toLowerCase();
+    for (const pattern of SUBJECT_PATTERNS) {
+        for (const keyword of pattern.keywords) {
+            if (lowerTitle.includes(keyword.toLowerCase())) {
+                return pattern;
+            }
+        }
+    }
+    return { name: 'Other', keywords: [], color: '#8892a0', icon: '&#128204;' };
+}
+
+function toggleInstructions() {
+    document.getElementById('apiInstructions').classList.toggle('hidden');
+}
+
+function showStatus(msg) {
+    const bar = document.getElementById('statusBar');
+    bar.classList.add('visible');
+    document.getElementById('statusText').textContent = msg;
+}
+
+function hideStatus() {
+    document.getElementById('statusBar').classList.remove('visible');
+}
+
+function formatNumber(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toString();
+}
+
+function formatDuration(dur) {
+    if (!dur) return '-';
+    // Already in H:MM:SS or M:SS format (scraped)
+    if (dur.includes(':')) {
+        const p = dur.split(':').map(Number);
+        if (p.length === 3) return p[0] > 0 ? `${p[0]}h ${p[1]}m` : `${p[1]}m ${p[2]}s`;
+        if (p.length === 2) return `${p[0]}m ${p[1]}s`;
+    }
+    // ISO 8601 format (API)
+    const match = dur.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (!match) return dur;
+    const h = parseInt(match[1] || 0);
+    const m = parseInt(match[2] || 0);
+    const s = parseInt(match[3] || 0);
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m ${s}s`;
+}
+
+function durationToMinutes(iso) {
+    if (!iso) return 0;
+    const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (!match) return 0;
+    return parseInt(match[1] || 0) * 60 + parseInt(match[2] || 0) + parseInt(match[3] || 0) / 60;
+}
+
+// Use local date parts to avoid UTC timezone shifting week boundaries
+function getWeekKey(dateStr) {
+    const d = new Date(dateStr);
+    const day = d.getDay(); // 0 = Sunday
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+    return `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`;
+}
+
+// Label as "Dec 21 – Dec 27" range from YYYY-MM-DD week start key
+function getWeekLabel(weekKey) {
+    const [y, m, d] = weekKey.split('-').map(Number);
+    const start = new Date(y, m - 1, d);
+    const end = new Date(y, m - 1, d + 6);
+    const startStr = start.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+    const endStr = end.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+    return `${startStr} – ${endStr}`;
+}
+
+// Local date string YYYY-MM-DD for a video
+function toLocalDateKey(dateStr) {
+    const d = new Date(dateStr);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// YouTube API calls
+async function apiCall(endpoint, params) {
+    const url = new URL(`https://www.googleapis.com/youtube/v3/${endpoint}`);
+    params.key = API_KEY;
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    const resp = await fetch(url);
+    if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error?.message || 'API Error');
+    }
+    return resp.json();
+}
+
+async function fetchAllLiveStreams() {
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    let allItems = [];
+    let nextPageToken = '';
+    let page = 0;
+
+    showStatus('Fetching live stream list...');
+
+    // Search for completed live streams
+    do {
+        const params = {
+            part: 'snippet',
+            channelId: CHANNEL_ID,
+            type: 'video',
+            eventType: 'completed',
+            order: 'date',
+            maxResults: '50',
+            publishedAfter: threeMonthsAgo.toISOString(),
+        };
+        if (nextPageToken) params.pageToken = nextPageToken;
+
+        const data = await apiCall('search', params);
+        allItems = allItems.concat(data.items || []);
+        nextPageToken = data.nextPageToken || '';
+        page++;
+        showStatus(`Fetching live streams... (page ${page}, found ${allItems.length} so far)`);
+    } while (nextPageToken);
+
+    return allItems;
+}
+
+async function fetchVideoDetails(videoIds) {
+    const details = [];
+    // API allows max 50 IDs per request
+    for (let i = 0; i < videoIds.length; i += 50) {
+        const batch = videoIds.slice(i, i + 50);
+        showStatus(`Fetching video details... (${i + batch.length}/${videoIds.length})`);
+        const data = await apiCall('videos', {
+            part: 'snippet,statistics,contentDetails,liveStreamingDetails',
+            id: batch.join(','),
+        });
+        details.push(...(data.items || []));
+    }
+    return details;
+}
+
+async function fetchAllData() {
+    API_KEY = document.getElementById('apiKeyInput').value.trim();
+    if (!API_KEY) {
+        alert('Please enter your YouTube Data API key');
+        return;
+    }
+
+    const fetchBtn = document.getElementById('fetchBtn');
+    fetchBtn.disabled = true;
+    fetchBtn.textContent = 'Fetching...';
+
+    try {
+        // Step 1: Get all live streams
+        const liveStreams = await fetchAllLiveStreams();
+
+        if (liveStreams.length === 0) {
+            hideStatus();
+            alert('No live streams found in the last 3 months. Please verify your API key and try again.');
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = 'Fetch Data';
+            return;
+        }
+
+        // Step 2: Get video details
+        const videoIds = liveStreams.map(v => v.id.videoId).filter(Boolean);
+        const videoDetails = await fetchVideoDetails(videoIds);
+
+        // Step 3: Merge data
+        allVideos = videoDetails.map(v => {
+            const subject = detectSubject(v.snippet.title);
+            // Use actualStartTime (real stream time) as the live date.
+            // Fall back to publishedAt only if actualStartTime is absent.
+            const liveDate = v.liveStreamingDetails?.actualStartTime || v.snippet.publishedAt;
+            return {
+                id: v.id,
+                title: v.snippet.title,
+                publishedAt: v.snippet.publishedAt,
+                liveDate,                          // ← primary date for all grouping
+                views: parseInt(v.statistics.viewCount || 0),
+                likes: parseInt(v.statistics.likeCount || 0),
+                comments: parseInt(v.statistics.commentCount || 0),
+                duration: v.contentDetails.duration,
+                durationMinutes: durationToMinutes(v.contentDetails.duration),
+                subject: subject.name,
+                subjectColor: subject.color,
+                subjectIcon: subject.icon,
+                actualStartTime: v.liveStreamingDetails?.actualStartTime,
+                actualEndTime: v.liveStreamingDetails?.actualEndTime,
+                concurrentViewers: v.liveStreamingDetails?.concurrentViewers,
+            };
+        }).sort((a, b) => new Date(b.liveDate) - new Date(a.liveDate));
+
+        // Save to localStorage
+        localStorage.setItem('nirmaan_api_key', API_KEY);
+        localStorage.setItem('nirmaan_data', JSON.stringify(allVideos));
+        localStorage.setItem('nirmaan_fetched', new Date().toISOString());
+
+        hideStatus();
+        renderDashboard();
+
+    } catch (err) {
+        hideStatus();
+        alert('Error: ' + err.message);
+    }
+
+    fetchBtn.disabled = false;
+    fetchBtn.textContent = 'Fetch Data';
+}
+
+function renderDashboard() {
+    document.getElementById('dashboardContent').classList.remove('hidden');
+    document.getElementById('emptyState').classList.add('hidden');
+
+    if (allVideos.length === 0) return;
+
+    // Summary stats
+    const totalViews = allVideos.reduce((s, v) => s + v.views, 0);
+    const totalStreams = allVideos.length;
+
+    // Weeks calculation
+    const dates = allVideos.map(v => new Date(v.liveDate));
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    const weekSpan = Math.max(1, Math.ceil((maxDate - minDate) / (7 * 24 * 60 * 60 * 1000)));
+
+    const avgPerWeek = (totalStreams / weekSpan).toFixed(1);
+    const avgViews = Math.round(totalViews / totalStreams);
+    const avgDurationMins = allVideos.reduce((s, v) => s + v.durationMinutes, 0) / totalStreams;
+
+    // Subject analysis
+    const subjectMap = {};
+    allVideos.forEach(v => {
+        if (!subjectMap[v.subject]) {
+            subjectMap[v.subject] = { views: 0, count: 0, likes: 0, color: v.subjectColor, icon: v.subjectIcon, totalDuration: 0 };
+        }
+        subjectMap[v.subject].views += v.views;
+        subjectMap[v.subject].count++;
+        subjectMap[v.subject].likes += v.likes;
+        subjectMap[v.subject].totalDuration += v.durationMinutes;
+    });
+
+    const topSubjectEntry = Object.entries(subjectMap).sort((a, b) => b[1].views - a[1].views)[0];
+
+    // Update summary cards
+    document.getElementById('totalStreams').textContent = totalStreams;
+    document.getElementById('avgPerWeek').textContent = avgPerWeek;
+    document.getElementById('avgPerWeekSub').textContent = `Over ${weekSpan} weeks`;
+    document.getElementById('totalViews').textContent = formatNumber(totalViews);
+    document.getElementById('avgViews').textContent = formatNumber(avgViews);
+    document.getElementById('avgViewsSub').textContent = `Across ${totalStreams} streams`;
+    document.getElementById('topSubject').textContent = topSubjectEntry ? topSubjectEntry[0] : '-';
+    document.getElementById('topSubjectSub').textContent = topSubjectEntry ? `${formatNumber(topSubjectEntry[1].views)} total views` : '-';
+
+    const avgH = Math.floor(avgDurationMins / 60);
+    const avgM = Math.round(avgDurationMins % 60);
+    document.getElementById('avgDuration').textContent = avgH > 0 ? `${avgH}h ${avgM}m` : `${avgM}m`;
+
+    // Render charts
+    renderWeeklyChart();
+    renderSubjectChart(subjectMap);
+    populateViewsSubjectFilter();
+    renderViewsTimeChart();
+    renderSubjectCountChart(subjectMap);
+
+    // Render subject grid
+    renderSubjectGrid(subjectMap);
+
+    // Render table
+    renderTable(allVideos);
+
+    // Render filter buttons
+    renderFilters(subjectMap);
+
+    // Set date range pickers — default: oldest to latest
+    const oldestDate = toLocalDateKey(allVideos[allVideos.length - 1].liveDate);
+    const latestDate = toLocalDateKey(allVideos[0].liveDate);
+    const fromPicker = document.getElementById('dailyFromPicker');
+    const toPicker   = document.getElementById('dailyToPicker');
+    fromPicker.min = toPicker.min = oldestDate;
+    fromPicker.max = toPicker.max = toLocalDateKey(new Date().toISOString());
+    fromPicker.value = oldestDate;
+    toPicker.value   = latestDate;
+    renderDailyAnalysis();
+    renderSuperPassSection();
+}
+
+function renderWeeklyChart() {
+    const weekMap = {};
+    allVideos.forEach(v => {
+        const key = getWeekKey(v.liveDate);
+        weekMap[key] = (weekMap[key] || 0) + 1;
+    });
+
+    const sortedWeeks = Object.keys(weekMap).sort();
+    const labels = sortedWeeks.map(w => getWeekLabel(w));
+    const data = sortedWeeks.map(w => weekMap[w]);
+
+    if (chartInstances.weekly) chartInstances.weekly.destroy();
+    chartInstances.weekly = new Chart(document.getElementById('weeklyChart'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Live Streams',
+                data,
+                backgroundColor: 'rgba(233,69,96,0.7)',
+                borderColor: '#e94560',
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, color: '#8892a0' }, grid: { color: 'rgba(42,42,69,0.5)' } },
+                x: { ticks: { color: '#8892a0', maxRotation: 45 }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderSubjectChart(subjectMap) {
+    const sorted = Object.entries(subjectMap).sort((a, b) => b[1].views - a[1].views);
+    const labels = sorted.map(s => s[0]);
+    const data = sorted.map(s => s[1].views);
+    const colors = sorted.map(s => s[1].color);
+
+    if (chartInstances.subject) chartInstances.subject.destroy();
+    chartInstances.subject = new Chart(document.getElementById('subjectChart'), {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: colors.map(c => c + '99'),
+                borderColor: colors,
+                borderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'right', labels: { color: '#eaeaea', padding: 12, font: { size: 11 } } }
+            }
+        }
+    });
+}
+
+let viewsChartMode = 'weekly'; // 'weekly' | 'perstream'
+
+function setViewMode(mode) {
+    viewsChartMode = mode;
+    document.getElementById('toggleWeekly').style.background    = mode === 'weekly'    ? 'var(--accent)' : 'var(--bg)';
+    document.getElementById('toggleWeekly').style.color         = mode === 'weekly'    ? '#fff' : 'var(--text-dim)';
+    document.getElementById('togglePerStream').style.background = mode === 'perstream' ? 'var(--accent)' : 'var(--bg)';
+    document.getElementById('togglePerStream').style.color      = mode === 'perstream' ? '#fff' : 'var(--text-dim)';
+    renderViewsTimeChart();
+}
+
+function populateViewsSubjectFilter() {
+    const sel = document.getElementById('viewsSubjectFilter');
+    const subjects = [...new Set(allVideos.map(v => v.subject))].sort();
+    sel.innerHTML = '<option value="all">All Subjects</option>' +
+        subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+}
+
+function renderViewsTimeChart() {
+    const subjectFilter = document.getElementById('viewsSubjectFilter')?.value || 'all';
+    const filtered = subjectFilter === 'all' ? allVideos : allVideos.filter(v => v.subject === subjectFilter);
+    const sorted = [...filtered].sort((a, b) => new Date(a.liveDate) - new Date(b.liveDate));
+
+    let labels, data, bgColors, borderColors, chartType;
+
+    if (viewsChartMode === 'weekly') {
+        // ── WEEKLY TOTAL VIEWS — clean line chart ──────────────────────────
+        const weekMap = {};
+        sorted.forEach(v => {
+            const key = getWeekKey(v.liveDate);
+            weekMap[key] = (weekMap[key] || 0) + v.views;
+        });
+        const sortedWeeks = Object.keys(weekMap).sort();
+        labels      = sortedWeeks.map(w => getWeekLabel(w));
+        data        = sortedWeeks.map(w => weekMap[w]);
+        bgColors    = 'rgba(233,69,96,0.15)';
+        borderColors = '#e94560';
+        chartType   = 'line';
+    } else {
+        // ── PER-STREAM TOP 30 — bar chart sorted by views ──────────────────
+        const top = [...sorted].sort((a, b) => b.views - a.views).slice(0, 30);
+        labels      = top.map(v => {
+            const d = new Date(v.liveDate).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+            const t = v.title.length > 28 ? v.title.substring(0, 28) + '…' : v.title;
+            return `${d}: ${t}`;
+        });
+        data        = top.map(v => v.views);
+        bgColors    = top.map(v => v.subjectColor + '99');
+        borderColors = top.map(v => v.subjectColor);
+        chartType   = 'bar';
+    }
+
+    if (chartInstances.viewsTime) chartInstances.viewsTime.destroy();
+    chartInstances.viewsTime = new Chart(document.getElementById('viewsTimeChart'), {
+        type: chartType,
+        data: {
+            labels,
+            datasets: [{
+                label: viewsChartMode === 'weekly' ? 'Total Views (Week)' : 'Views',
+                data,
+                backgroundColor: bgColors,
+                borderColor: borderColors,
+                borderWidth: viewsChartMode === 'weekly' ? 2 : 1,
+                borderRadius: 4,
+                fill: viewsChartMode === 'weekly',
+                tension: 0.4,
+                pointBackgroundColor: '#e94560',
+                pointRadius: viewsChartMode === 'weekly' ? 4 : 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${formatNumber(ctx.parsed.y)} views`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#8892a0', callback: v => formatNumber(v) },
+                    grid: { color: 'rgba(42,42,69,0.5)' }
+                },
+                x: {
+                    ticks: {
+                        color: '#8892a0',
+                        maxRotation: viewsChartMode === 'weekly' ? 30 : 45,
+                        autoSkip: true,
+                        maxTicksLimit: viewsChartMode === 'weekly' ? 14 : 12
+                    },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+function renderSubjectCountChart(subjectMap) {
+    const sorted = Object.entries(subjectMap).sort((a, b) => b[1].count - a[1].count);
+    const labels = sorted.map(s => s[0]);
+    const data = sorted.map(s => s[1].count);
+    const colors = sorted.map(s => s[1].color);
+
+    if (chartInstances.subjectCount) chartInstances.subjectCount.destroy();
+    chartInstances.subjectCount = new Chart(document.getElementById('subjectCountChart'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Streams',
+                data,
+                backgroundColor: colors.map(c => c + '80'),
+                borderColor: colors,
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true, ticks: { stepSize: 1, color: '#8892a0' }, grid: { color: 'rgba(42,42,69,0.5)' } },
+                y: { ticks: { color: '#8892a0' }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderSubjectGrid(subjectMap) {
+    const grid = document.getElementById('subjectGrid');
+    const maxViews = Math.max(...Object.values(subjectMap).map(s => s.views));
+    const sorted = Object.entries(subjectMap).sort((a, b) => b[1].views - a[1].views);
+
+    grid.innerHTML = sorted.map(([name, data]) => {
+        const pct = Math.round((data.views / maxViews) * 100);
+        const avgViewsPerStream = Math.round(data.views / data.count);
+        return `
+            <div class="subject-card">
+                <div class="subject-icon" style="background:${data.color}22; color:${data.color}">${data.icon}</div>
+                <div class="subject-info">
+                    <h4>${name}</h4>
+                    <div class="stats">${data.count} streams &bull; ${formatNumber(data.views)} views &bull; Avg: ${formatNumber(avgViewsPerStream)}/stream</div>
+                    <div class="subject-bar">
+                        <div class="subject-bar-fill" style="width:${pct}%; background:${data.color}"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderFilters(subjectMap) {
+    const container = document.getElementById('subjectFilters');
+    const subjects = Object.keys(subjectMap).sort();
+    container.innerHTML = `<button class="filter-btn active" data-filter="all" onclick="filterTable('all', this)">All</button>` +
+        subjects.map(s => `<button class="filter-btn" data-filter="${s}" onclick="filterTable('${s}', this)">${s}</button>`).join('');
+}
+
+function filterTable(subject, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const filtered = subject === 'all' ? allVideos : allVideos.filter(v => v.subject === subject);
+    renderTable(filtered);
+}
+
+function renderTable(videos) {
+    const tbody = document.getElementById('videoTableBody');
+    const tags  = getSpTags();
+    tbody.innerHTML = videos.map(v => {
+        const date = new Date(v.liveDate);
+        const dateStr = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        const tagClass = 'tag-' + v.subject.toLowerCase().replace(/\s+/g, '-');
+        const viewClass = v.views > 5000 ? 'views-good' : v.views > 1000 ? 'views-avg' : 'views-low';
+        const truncTitle = v.title.length > 70 ? v.title.substring(0, 70) + '...' : v.title;
+
+        // Pitch checklist cell
+        const rawTag = tags[v.id];
+        const norm = normalizeTag(rawTag);
+        const isPending = rawTag && rawTag.pending && !(norm && norm.types.length > 0);
+        const pitchCell = (() => {
+            if (isPending) {
+                return `<span title="Captions not yet available — re-scan tomorrow" style="
+                    font-size:11px; color:#f9a825; padding:2px 6px;
+                    background:rgba(249,168,37,0.1); border:1px solid rgba(249,168,37,0.3);
+                    border-radius:4px; white-space:nowrap;">⏳ Pending</span>`;
+            }
+            const checks = Object.entries(SP_TYPES).map(([type, info]) => {
+                const active = norm && norm.types.includes(type);
+                return `<span title="${info.label}" style="
+                    display:inline-flex; align-items:center; gap:3px;
+                    font-size:11px; padding:2px 6px; border-radius:4px; white-space:nowrap;
+                    background:${active ? info.bgAlpha : 'rgba(255,255,255,0.04)'};
+                    color:${active ? '#fff' : 'var(--text-dim)'};
+                    border:1px solid ${active ? info.color : 'transparent'};
+                    opacity:${active ? '1' : '0.35'};
+                ">${active ? '✓' : '○'} ${info.label.replace(/^[^\s]+\s/,'')}</span>`;
+            });
+            return `<div style="display:flex;flex-direction:column;gap:3px;">${checks.join('')}</div>`;
+        })();
+
+        return `<tr>
+            <td>${dateStr}</td>
+            <td><a href="https://www.youtube.com/watch?v=${v.id}" target="_blank" style="color:var(--text);text-decoration:none;" title="${v.title}">${truncTitle}</a></td>
+            <td><span class="tag ${tagClass}">${v.subject}</span></td>
+            <td class="${viewClass}">${formatNumber(v.views)}</td>
+            <td>${formatNumber(v.likes)}</td>
+            <td>${formatDuration(v.duration)}</td>
+            <td>${formatNumber(v.comments)}</td>
+            <td>${pitchCell}</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderDailyAnalysis() {
+    if (allVideos.length === 0) return;
+
+    const fromStr = document.getElementById('dailyFromPicker')?.value;
+    const toStr   = document.getElementById('dailyToPicker')?.value;
+    if (!fromStr || !toStr) return;
+
+    // Swap if user picked from > to
+    const [from, to] = fromStr <= toStr ? [fromStr, toStr] : [toStr, fromStr];
+
+    const statsEl  = document.getElementById('dailyStats');
+    const listEl   = document.getElementById('dailyVideoList');
+    const labelEl  = document.getElementById('dailyRangeLabel');
+
+    // Build range label
+    const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    const isSameDay = from === to;
+    labelEl.textContent = isSameDay
+        ? fmtDate(from)
+        : `${fmtDate(from)}  →  ${fmtDate(to)}`;
+
+    // Filter videos in the range
+    const rangeVideos = allVideos.filter(v => {
+        const d = toLocalDateKey(v.liveDate);
+        return d >= from && d <= to;
+    });
+
+    const totalViews    = rangeVideos.reduce((s, v) => s + v.views, 0);
+    const totalLikes    = rangeVideos.reduce((s, v) => s + v.likes, 0);
+    const totalDuration = rangeVideos.reduce((s, v) => s + v.durationMinutes, 0);
+
+    // Count unique active days
+    const activeDays = new Set(rangeVideos.map(v => toLocalDateKey(v.liveDate))).size;
+
+    statsEl.innerHTML = `
+        <div class="daily-stat">
+            <div class="ds-label">Videos Live</div>
+            <div class="ds-value">${rangeVideos.length}</div>
+            <div class="ds-sub">across ${activeDays} day${activeDays !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="daily-stat">
+            <div class="ds-label">Total Views</div>
+            <div class="ds-value" style="color:var(--success)">${formatNumber(totalViews)}</div>
+            <div class="ds-sub">combined till now</div>
+        </div>
+        <div class="daily-stat">
+            <div class="ds-label">Total Likes</div>
+            <div class="ds-value" style="color:var(--warning)">${formatNumber(totalLikes)}</div>
+            <div class="ds-sub">combined till now</div>
+        </div>
+        <div class="daily-stat">
+            <div class="ds-label">Avg Views/Video</div>
+            <div class="ds-value" style="color:#4fc3f7">${rangeVideos.length ? formatNumber(Math.round(totalViews / rangeVideos.length)) : 0}</div>
+            <div class="ds-sub">in this range</div>
+        </div>
+        <div class="daily-stat">
+            <div class="ds-label">Avg per Day</div>
+            <div class="ds-value" style="color:#ab47bc">${activeDays ? (rangeVideos.length / activeDays).toFixed(1) : 0}</div>
+            <div class="ds-sub">streams per active day</div>
+        </div>
+    `;
+
+    if (rangeVideos.length === 0) {
+        listEl.innerHTML = `<div class="daily-empty">No live streams found in this date range.</div>`;
+        return;
+    }
+
+    // Sort by date desc, then by views desc within same day
+    const sorted = [...rangeVideos].sort((a, b) => {
+        const dateDiff = toLocalDateKey(b.liveDate).localeCompare(toLocalDateKey(a.liveDate));
+        return dateDiff !== 0 ? dateDiff : b.views - a.views;
+    });
+
+    // Group by date for display
+    let currentDay = '';
+    let html = '';
+    sorted.forEach((v, i) => {
+        const dayKey = toLocalDateKey(v.liveDate);
+        if (dayKey !== currentDay) {
+            currentDay = dayKey;
+            const dayLabel = new Date(dayKey + 'T12:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            const dayCount = sorted.filter(x => toLocalDateKey(x.liveDate) === dayKey).length;
+            html += `<div style="padding:10px 16px 6px;font-size:12px;font-weight:600;color:var(--accent);letter-spacing:0.5px;border-top:1px solid var(--border);margin-top:4px;">
+                        📅 ${dayLabel} &nbsp;<span style="color:var(--text-dim);font-weight:400;">${dayCount} stream${dayCount !== 1 ? 's' : ''}</span>
+                     </div>`;
+        }
+        const truncTitle = v.title.length > 80 ? v.title.substring(0, 80) + '...' : v.title;
+        const tagClass = 'tag-' + v.subject.toLowerCase().replace(/\s+/g, '-');
+        html += `
+            <div class="daily-video-item">
+                <div class="dv-num">#${i + 1}</div>
+                <div class="dv-info">
+                    <a href="https://www.youtube.com/watch?v=${v.id}" target="_blank" title="${v.title}">${truncTitle}</a>
+                    <div class="dv-meta">
+                        <span class="tag ${tagClass}" style="margin-right:8px">${v.subject}</span>
+                        Duration: ${formatDuration(v.duration)} &bull; Likes: ${formatNumber(v.likes)} &bull; Comments: ${formatNumber(v.comments)}
+                    </div>
+                </div>
+                <div class="dv-views">
+                    ${formatNumber(v.views)}
+                    <span>views till now</span>
+                </div>
+            </div>
+        `;
+    });
+    listEl.innerHTML = html;
+}
+
+// ── Super Pass Pitch Tracker ─────────────────────────────────────────────────
+
+const SP_TYPES = {
+    trial:   { label: '🎟 ₹1 Trial',  color: '#a855f7', bgAlpha: 'rgba(168,85,247,0.7)' },
+    pass999: { label: '🏆 ₹999 Pass', color: '#00c897', bgAlpha: 'rgba(0,200,151,0.7)'  },
+    pass499: { label: '💎 ₹499 Pass', color: '#4fc3f7', bgAlpha: 'rgba(79,195,247,0.7)' },
+    custom:  { label: '✏️ Custom',    color: '#f97316', bgAlpha: 'rgba(249,115,22,0.7)'  },
+};
+
+// Storage: { [videoId]: { types: ['trial','pass999',...], customLabel: string } }
+function getSpTags() {
+    try { return JSON.parse(localStorage.getItem('nirmaan_sp_tags') || '{}'); } catch { return {}; }
+}
+function saveSpTags(tags) { localStorage.setItem('nirmaan_sp_tags', JSON.stringify(tags)); }
+
+// Normalise any legacy format → { types: [...], customLabel: '' }
+function normalizeTag(val) {
+    if (!val) return null;
+    if (val === true || val === 1)                        return { types: ['trial'], customLabel: '' };
+    if (typeof val === 'object' && Array.isArray(val.types)) return val.types.length ? val : null;
+    if (typeof val === 'object' && val.type)              return { types: [val.type], customLabel: val.customLabel || '' };
+    return null;
+}
+
+// ── Auto-Scan Pitches via pitch_server.py ────────────────────────────────────
+async function autoScanPitches() {
+    if (!allVideos.length) { alert('Load video data first.'); return; }
+
+    const btn = document.getElementById('spScanBtn');
+    const statusDiv = document.getElementById('spScanStatus');
+    const msgEl = document.getElementById('spScanMsg');
+    const barEl = document.getElementById('spScanBar');
+
+    // Check server is up
+    try {
+        await fetch('/api/scan?ids=test', {signal: AbortSignal.timeout(2000)});
+    } catch {
+        alert('⚠️ Pitch Scanner server not running.\n\nPlease start it:\n  python3 /Users/cp/pitch_server.py\n\nThen click Auto-Scan again.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Scanning...';
+    statusDiv.style.display = 'block';
+
+    const BATCH = 3; // scan 3 at a time to avoid rate limits
+    const videos = allVideos;
+    const tags = getSpTags();
+    let done = 0;
+
+    for (let i = 0; i < videos.length; i += BATCH) {
+        const batch = videos.slice(i, i + BATCH);
+        const ids = batch.map(v => v.id).join(',');
+        msgEl.textContent = `Scanning transcripts… ${done}/${videos.length} done`;
+        barEl.style.width = Math.round((done / videos.length) * 100) + '%';
+
+        try {
+            const resp = await fetch(`/api/scan?ids=${ids}`);
+            const data = await resp.json();
+            if (data.results) {
+                data.results.forEach(r => {
+                    if (r.pending) {
+                        // Captions not ready yet — mark as pending so table shows ⏳
+                        if (!tags[r.videoId]) {
+                            tags[r.videoId] = { types: [], customLabel: '', pending: true };
+                        } else {
+                            tags[r.videoId].pending = true;
+                        }
+                    } else if (r.types && r.types.length > 0) {
+                        const existing = normalizeTag(tags[r.videoId]);
+                        const mergedTypes = [...new Set([...(existing ? existing.types : []), ...r.types])];
+                        tags[r.videoId] = {
+                            types: mergedTypes,
+                            customLabel: existing ? existing.customLabel : '',
+                            autoDetected: true,
+                            pending: false,
+                        };
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('Scan batch error:', e);
+        }
+        done += batch.length;
+    }
+
+    barEl.style.width = '100%';
+    const pendingCount = Object.values(tags).filter(t => t && t.pending).length;
+    const detectedCount = Object.values(tags).filter(t => t && !t.pending && t.types && t.types.length > 0).length;
+    msgEl.textContent = `✅ Scan complete! ${detectedCount} pitched, ${pendingCount} ⏳ pending (captions not ready yet — re-scan tomorrow).`;
+    saveSpTags(tags);
+    renderSuperPassSection();
+    if (spTaggingOpen) renderSpTagList();
+
+    btn.disabled = false;
+    btn.textContent = '🔍 Auto-Scan Pitches';
+    setTimeout(() => { statusDiv.style.display = 'none'; }, 4000);
+}
+
+let spTaggingOpen = false;
+function toggleSpTagging() {
+    spTaggingOpen = !spTaggingOpen;
+    document.getElementById('spTaggingArea').style.display = spTaggingOpen ? 'block' : 'none';
+    document.getElementById('spTagBtn').textContent = spTaggingOpen ? '✕ Close Tagging' : '✎ Tag Streams';
+    if (spTaggingOpen) renderSpTagList();
+}
+
+function clearSpTags() {
+    if (!confirm('Clear all Super Pass tags? This cannot be undone.')) return;
+    localStorage.removeItem('nirmaan_sp_tags');
+    renderSuperPassSection();
+    if (spTaggingOpen) renderSpTagList();
+}
+
+// Main checkbox — toggle stream as pitched / not pitched
+function toggleSpTag(videoId) {
+    const tags = getSpTags();
+    if (tags[videoId]) {
+        delete tags[videoId];
+    } else {
+        tags[videoId] = { types: [], customLabel: '' };   // no type pre-selected
+    }
+    saveSpTags(tags);
+    renderSuperPassSection();
+    _refreshSpRow(videoId, tags);
+}
+
+// Toggle a single pitch TYPE on/off for a stream (multi-select)
+function toggleSpType(videoId, type) {
+    const tags = getSpTags();
+    if (!tags[videoId]) return;
+    const norm = normalizeTag(tags[videoId]) || { types: [], customLabel: '' };
+    const idx  = norm.types.indexOf(type);
+    if (idx === -1) norm.types.push(type);
+    else            norm.types.splice(idx, 1);
+    tags[videoId] = { types: norm.types, customLabel: norm.customLabel };
+    saveSpTags(tags);
+    renderSuperPassSection();
+    _refreshSpRow(videoId, tags);
+}
+
+function setSpCustomLabel(videoId, label) {
+    const tags = getSpTags();
+    if (!tags[videoId]) return;
+    const norm = normalizeTag(tags[videoId]) || { types: [], customLabel: '' };
+    tags[videoId] = { types: norm.types, customLabel: label };
+    saveSpTags(tags);
+    _refreshSpBadges(videoId, norm.types, label);
+}
+
+// Refresh just the single row's DOM (no full re-render needed)
+function _refreshSpRow(videoId, tags) {
+    const row = document.querySelector(`.sp-tag-item[data-id="${videoId}"]`);
+    if (!row) return;
+    const norm      = normalizeTag(tags[videoId]);
+    const isPitched = !!norm;
+    const selTypes  = norm ? norm.types : [];
+
+    row.classList.toggle('is-pitched', isPitched);
+    const cb = row.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = isPitched;
+
+    const typeSel = row.querySelector('.sp-type-selector');
+    if (typeSel) typeSel.style.display = isPitched ? 'flex' : 'none';
+
+    // Update each type-btn active state
+    row.querySelectorAll('.sp-type-btn').forEach(b => {
+        const t = b.dataset.type;
+        b.className = 'sp-type-btn' + (selTypes.includes(t) ? ` active-${t}` : '');
+    });
+
+    // Custom input
+    const customInput = row.querySelector('.sp-custom-label-input');
+    if (customInput) customInput.style.display = selTypes.includes('custom') ? 'inline-block' : 'none';
+
+    _refreshSpBadges(videoId, selTypes, norm ? norm.customLabel : '');
+}
+
+function _refreshSpBadges(videoId, selTypes, customLabel) {
+    const row = document.querySelector(`.sp-tag-item[data-id="${videoId}"]`);
+    if (!row) return;
+    const badgesWrap = row.querySelector('.sp-badges-wrap');
+    if (!badgesWrap) return;
+    if (!selTypes || selTypes.length === 0) {
+        badgesWrap.innerHTML = '';
+        return;
+    }
+    badgesWrap.innerHTML = selTypes.map(t => {
+        const info  = SP_TYPES[t] || SP_TYPES.trial;
+        const label = t === 'custom' && customLabel ? `✏️ ${customLabel}` : info.label;
+        return `<span class="sp-type-badge sp-type-badge-${t}">${label}</span>`;
+    }).join('');
+}
+
+function renderSuperPassSection() {
+    if (!allVideos.length) return;
+    const tags = getSpTags();
+
+    const fromStr = document.getElementById('dailyFromPicker')?.value;
+    const toStr   = document.getElementById('dailyToPicker')?.value;
+    const [from, to] = fromStr && toStr && fromStr <= toStr ? [fromStr, toStr] : [fromStr || '', toStr || ''];
+
+    const inRange    = (from && to)
+        ? allVideos.filter(v => { const d = toLocalDateKey(v.liveDate); return d >= from && d <= to; })
+        : allVideos;
+
+    const pitched    = inRange.filter(v => normalizeTag(tags[v.id]));
+    const notPitched = inRange.filter(v => !normalizeTag(tags[v.id]));
+
+    const pitchedViews    = pitched.reduce((s, v) => s + v.views, 0);
+    const notPitchedViews = notPitched.reduce((s, v) => s + v.views, 0);
+    const avgPitched      = pitched.length    ? Math.round(pitchedViews    / pitched.length)    : 0;
+    const avgNotPitched   = notPitched.length ? Math.round(notPitchedViews / notPitched.length) : 0;
+    const rate            = inRange.length    ? Math.round((pitched.length / inRange.length) * 100) : 0;
+
+    // Per-type stats — a stream with BOTH trial & pass999 counts in BOTH buckets
+    const pitchTypeStats = {};
+    Object.keys(SP_TYPES).forEach(t => { pitchTypeStats[t] = { count: 0, totalViews: 0, avgViews: 0 }; });
+    pitched.forEach(v => {
+        const norm = normalizeTag(tags[v.id]);
+        if (!norm) return;
+        norm.types.forEach(t => {
+            if (pitchTypeStats[t]) {
+                pitchTypeStats[t].count++;
+                pitchTypeStats[t].totalViews += v.views;
+            }
+        });
+    });
+    Object.values(pitchTypeStats).forEach(s => { s.avgViews = s.count ? Math.round(s.totalViews / s.count) : 0; });
+
+    // Top pitch type by count
+    let topType = null, topCount = 0;
+    Object.entries(pitchTypeStats).forEach(([t, s]) => { if (s.count > topCount) { topCount = s.count; topType = t; } });
+
+    // Range badge
+    const fmtD = d => new Date(d + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    document.getElementById('spRangeLabel').textContent = (from && to)
+        ? (from === to ? fmtD(from) : `${fmtD(from)} – ${fmtD(to)}`) : 'All streams';
+
+    document.getElementById('spCount').textContent             = pitched.length;
+    document.getElementById('spCountSub').textContent          = `of ${inRange.length} total`;
+    document.getElementById('spViews').textContent             = formatNumber(pitchedViews);
+    document.getElementById('spAvgPitched').textContent        = formatNumber(avgPitched);
+    document.getElementById('spAvgPitchedSub').textContent     = `${pitched.length} stream${pitched.length !== 1 ? 's' : ''}`;
+    document.getElementById('spAvgNonPitched').textContent     = formatNumber(avgNotPitched);
+    document.getElementById('spAvgNonPitchedSub').textContent  = `${notPitched.length} stream${notPitched.length !== 1 ? 's' : ''}`;
+    document.getElementById('spRate').textContent              = rate + '%';
+
+    if (topType) {
+        document.getElementById('spTopType').textContent    = SP_TYPES[topType].label;
+        document.getElementById('spTopTypeSub').textContent = `${topCount} pitch${topCount !== 1 ? 'es' : ''}`;
+        document.getElementById('spTopType').style.color    = SP_TYPES[topType].color;
+    } else {
+        document.getElementById('spTopType').textContent    = '—';
+        document.getElementById('spTopTypeSub').textContent = 'no pitches yet';
+        document.getElementById('spTopType').style.color    = '';
+    }
+
+    renderSpCompareChart(pitchTypeStats, avgNotPitched, notPitched.length);
+    renderSpTimelineChart(pitched, tags, from, to);
+    // Keep table pitch column in sync whenever tags change
+    renderTable(allVideos);
+}
+
+function renderSpCompareChart(pitchTypeStats, avgNP, cntNP) {
+    const typeKeys = ['trial', 'pass999', 'pass499', 'custom'];
+    const labels   = typeKeys.map(t => `${SP_TYPES[t].label} (${pitchTypeStats[t].count})`).concat([`Not Pitched (${cntNP})`]);
+    const data     = typeKeys.map(t => pitchTypeStats[t].avgViews).concat([avgNP]);
+    const bgColors = typeKeys.map(t => SP_TYPES[t].bgAlpha).concat(['rgba(42,42,69,0.85)']);
+    const borders  = typeKeys.map(t => SP_TYPES[t].color).concat(['#4a4a69']);
+
+    if (chartInstances.spCompare) chartInstances.spCompare.destroy();
+    chartInstances.spCompare = new Chart(document.getElementById('spCompareChart'), {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Avg Views', data, backgroundColor: bgColors, borderColor: borders, borderWidth: 2, borderRadius: 6 }] },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${formatNumber(ctx.parsed.y)} avg views` } } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: '#8892a0', callback: v => formatNumber(v) }, grid: { color: 'rgba(42,42,69,0.5)' } },
+                x: { ticks: { color: '#eaeaea', font: { size: 10 } }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderSpTimelineChart(pitched, tags, from, to) {
+    if (!pitched.length) { if (chartInstances.spTimeline) chartInstances.spTimeline.destroy(); return; }
+    const weekMap = {};
+    pitched.forEach(v => {
+        const key = getWeekKey(v.liveDate);
+        if (!weekMap[key]) weekMap[key] = { count: 0, views: 0 };
+        weekMap[key].count++;
+        weekMap[key].views += v.views;
+    });
+    const wkeys  = Object.keys(weekMap).sort();
+    const labels = wkeys.map(w => getWeekLabel(w));
+    if (chartInstances.spTimeline) chartInstances.spTimeline.destroy();
+    chartInstances.spTimeline = new Chart(document.getElementById('spTimelineChart'), {
+        type: 'bar',
+        data: { labels, datasets: [
+            { label: 'Pitch Count', data: wkeys.map(w => weekMap[w].count), backgroundColor: 'rgba(168,85,247,0.7)', borderColor: '#a855f7', borderWidth: 1, borderRadius: 4, yAxisID: 'y' },
+            { label: 'Total Views', data: wkeys.map(w => weekMap[w].views), type: 'line', borderColor: '#00c897', backgroundColor: 'rgba(0,200,151,0.1)', borderWidth: 2, pointRadius: 4, fill: false, tension: 0.3, yAxisID: 'y1' }
+        ]},
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: '#8892a0', font: { size: 11 } } }, tooltip: { callbacks: { label: ctx => ctx.datasetIndex === 0 ? ` ${ctx.parsed.y} pitches` : ` ${formatNumber(ctx.parsed.y)} views` } } },
+            scales: {
+                y:  { beginAtZero: true, ticks: { stepSize: 1, color: '#8892a0' }, grid: { color: 'rgba(42,42,69,0.5)' } },
+                y1: { position: 'right', beginAtZero: true, ticks: { color: '#00c897', callback: v => formatNumber(v) }, grid: { display: false } },
+                x:  { ticks: { color: '#8892a0', maxRotation: 30, autoSkip: true, maxTicksLimit: 10 }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderSpTagList() {
+    const tags = getSpTags();
+    const fromStr = document.getElementById('dailyFromPicker')?.value;
+    const toStr   = document.getElementById('dailyToPicker')?.value;
+    const [from, to] = fromStr && toStr && fromStr <= toStr ? [fromStr, toStr] : [fromStr || '', toStr || ''];
+
+    const inRange = (from && to)
+        ? allVideos.filter(v => { const d = toLocalDateKey(v.liveDate); return d >= from && d <= to; })
+        : allVideos;
+
+    const sorted = [...inRange].sort((a, b) => toLocalDateKey(b.liveDate).localeCompare(toLocalDateKey(a.liveDate)));
+
+    let currentDay = '', html = '';
+    sorted.forEach(v => {
+        const dayKey = toLocalDateKey(v.liveDate);
+        if (dayKey !== currentDay) {
+            currentDay = dayKey;
+            const dl = new Date(dayKey + 'T12:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+            html += `<div style="padding:8px 14px 4px;font-size:11px;font-weight:600;color:var(--text-dim);background:var(--bg);letter-spacing:0.5px;">📅 ${dl}</div>`;
+        }
+
+        const norm      = normalizeTag(tags[v.id]);
+        const isPitched = !!norm;
+        const selTypes  = norm ? norm.types : [];
+        const customLabel = norm ? (norm.customLabel || '') : '';
+        const truncTitle  = v.title.length > 75 ? v.title.substring(0, 75) + '...' : v.title;
+        const subjectTagClass = 'tag-' + v.subject.toLowerCase().replace(/\s+/g, '-');
+
+        // Multi-select type toggle buttons
+        const typePills = Object.entries(SP_TYPES).map(([key, info]) => {
+            const isActive = selTypes.includes(key);
+            return `<button class="sp-type-btn${isActive ? ` active-${key}` : ''}" data-type="${key}"
+                onclick="toggleSpType('${v.id}','${key}')">${info.label}</button>`;
+        }).join('');
+
+        const customInputDisplay = (selTypes.includes('custom')) ? 'inline-block' : 'none';
+        const escapedCustom = customLabel.replace(/"/g, '&quot;');
+
+        // Badges — one per selected type
+        const badgesHtml = selTypes.length
+            ? selTypes.map(t => {
+                const info  = SP_TYPES[t] || SP_TYPES.trial;
+                const label = t === 'custom' && customLabel ? `✏️ ${customLabel}` : info.label;
+                return `<span class="sp-type-badge sp-type-badge-${t}">${label}</span>`;
+              }).join('')
+            : '';
+
+        html += `
+            <div class="sp-tag-item ${isPitched ? 'is-pitched' : ''}" data-id="${v.id}">
+                <input type="checkbox" ${isPitched ? 'checked' : ''} onchange="toggleSpTag('${v.id}')">
+                <div class="sp-tag-title">
+                    <a href="https://www.youtube.com/watch?v=${v.id}" target="_blank">${truncTitle}</a>
+                    <div class="sp-tag-meta">
+                        <span class="tag ${subjectTagClass}" style="margin-right:6px;font-size:10px;">${v.subject}</span>
+                        ${formatDuration(v.duration)} &bull; ${new Date(v.liveDate).toLocaleDateString('en-IN', {day:'numeric',month:'short'})}
+                    </div>
+                </div>
+                <div class="sp-type-selector" style="display:${isPitched ? 'flex' : 'none'}; flex-wrap:wrap;">
+                    ${typePills}
+                    <input class="sp-custom-label-input" type="text" placeholder="label…" value="${escapedCustom}"
+                        style="display:${customInputDisplay};"
+                        oninput="setSpCustomLabel('${v.id}', this.value)">
+                </div>
+                <div class="sp-badges-wrap" style="display:flex;gap:4px;flex-wrap:wrap;min-width:80px;">${badgesHtml}</div>
+                <div class="sp-tag-views">${formatNumber(v.views)}<span style="font-size:10px;color:var(--text-dim);font-weight:400;display:block;">views</span></div>
+            </div>`;
+    });
+    document.getElementById('spTagList').innerHTML = html || '<div style="padding:16px;color:var(--text-dim);">No streams in this range.</div>';
+}
+
+// ── Sort table ────────────────────────────────────────────────────────────────
+let sortDir = {};
+function sortTable(col) {
+    sortDir[col] = !(sortDir[col] || false);
+    const dir = sortDir[col] ? 1 : -1;
+
+    const keys = ['liveDate', 'title', 'subject', 'views', 'likes', 'durationMinutes', 'comments'];
+    const key = keys[col];
+
+    allVideos.sort((a, b) => {
+        if (typeof a[key] === 'string') return dir * a[key].localeCompare(b[key]);
+        return dir * (a[key] - b[key]);
+    });
+
+    renderTable(allVideos);
+}
+
+// ── Scraped live data (no API key needed) ──────────────────────────────────
+const SCRAPED_RAW = [
+  {id:"qOWZn8427xY",title:"Chapter-22 Super Test Solution | GCERT ધોરણ-9 સામાજિક વિજ્ઞાન | GCERT Social Science | #gcert #cce",views:671,duration:"48:14",liveDate:"2026-03-25"},
+  {id:"mN6xL9X-Hig",title:"L-23 ભક્તિ અને સૂફી આંદોલન-2 | History | ઈતિહાસની દીર્ઘ દ્રષ્ટિ | Syllabus મુજબ તૈયારી | #cce #psi",views:1146,duration:"1:48:14",liveDate:"2026-03-25"},
+  {id:"Qg88n96Cuoo",title:"L-37 Reasoning | Free Practice Batch | Maths for Special CCE/Constable Exam #cce #maths",views:2862,duration:"1:06:59",liveDate:"2026-03-25"},
+  {id:"jZXx80W1S-I",title:"EP-2 ધમાકેદાર | JAKKAS GK | ગુજરાતની તમામ સ્પર્ધાત્મક પરીક્ષાઓ માટે #gk #gkquiz",views:3512,duration:"1:18:43",liveDate:"2026-03-25"},
+  {id:"aUQXjbjydLw",title:"Chapter-21 Super Test Solution | GCERT ધોરણ-9 સામાજિક વિજ્ઞાન | GCERT Social Science | #gcert #cce",views:2476,duration:"1:37:27",liveDate:"2026-03-25"},
+  {id:"zN7l9ZKpEek",title:"Phrasal Verbs | 15 Day-15 Topic | English Special | Target CCE English 15 Marks Strategy",views:1576,duration:"2:01:31",liveDate:"2026-03-24"},
+  {id:"uP0I1lF_iaU",title:"ગુજરાતી વ્યાકરણ + શબ્દભંડોળ : પરીક્ષામાં વારંવાર પૂછાતા પ્રશ્નો | Constable | CCE",views:7321,duration:"1:05:01",liveDate:"2026-03-24"},
+  {id:"qR9RuDwUUOg",title:"EP-1 ધમાકેદાર | JAKKAS GK | ગુજરાતની તમામ સ્પર્ધાત્મક પરીક્ષાઓ માટે #gk #gkquiz",views:6852,duration:"1:11:03",liveDate:"2026-03-24"},
+  {id:"vYUQcdG6cUQ",title:"Chapter-20 Super Test Solution | GCERT ધોરણ-9 સામાજિક વિજ્ઞાન | GCERT Social Science | #gcert #cce",views:2559,duration:"1:52:53",liveDate:"2026-03-24"},
+  {id:"-AD0w1rbRLA",title:"L-22 ભક્તિ અને સૂફી આંદોલન | History | ઈતિહાસની દીર્ઘ દ્રષ્ટિ | Syllabus મુજબ તૈયારી | #cce #psi",views:1555,duration:"1:13:13",liveDate:"2026-03-23"},
+  {id:"eFgTAuhpTiQ",title:"Chapter-19 Super Test Solution | GCERT ધોરણ-9 સામાજિક વિજ્ઞાન | GCERT Social Science | #gcert #cce",views:3020,duration:"1:28:48",liveDate:"2026-03-22"},
+  {id:"PaCoYQ2CbFQ",title:"Degree of Comparison | 15 Day-15 Topic | English Special | Target CCE English 15 Marks Strategy",views:2603,duration:"1:43:18",liveDate:"2026-03-21"},
+  {id:"wf7NegNnXmg",title:"L-36 Reasoning | Free Practice Batch | Maths for Special CCE/Constable Exam #cce #maths",views:5372,duration:"1:34:46",liveDate:"2026-03-21"},
+  {id:"MlFDtoA_iS0",title:"Chapter-18 Super Test Solution | GCERT ધોરણ-9 સામાજિક વિજ્ઞાન | GCERT Social Science | #gcert #cce",views:2175,duration:"1:29:27",liveDate:"2026-03-21"},
+  {id:"AJyvWLR9qfI",title:"20 March 2026 | Daily Current Affairs | 2:00 PM | GPSC, Class-3",views:2386,duration:"21:29",liveDate:"2026-03-21"},
+  {id:"mD9lq7ihWds",title:"Tenses | 15 Day-15 Topic | English Special | Target CCE English 15 Marks Strategy",views:2873,duration:"1:46:59",liveDate:"2026-03-19"},
+  {id:"FPn-wkUIcLY",title:"L-35 Maths-Reasoning | Free Practice Batch | Maths for Special CCE/Constable Exam #cce #maths",views:8405,duration:"1:30:50",liveDate:"2026-03-19"},
+  {id:"2d9Q8BeUdn8",title:"Chapter-17 Super Test Solution | GCERT ધોરણ-9 સામાજિક વિજ્ઞાન | GCERT Social Science | #gcert #cce",views:2114,duration:"1:14:31",liveDate:"2026-03-19"},
+  {id:"cArM2T-K2M8",title:"L-21 વિજયનગર સામ્રાજ્ય-2 | History | ઈતિહાસની દીર્ઘ દ્રષ્ટિ | Syllabus મુજબ તૈયારી | #cce #psi",views:1736,duration:"1:40:22",liveDate:"2026-03-18"},
+  {id:"ffMraMMmHZA",title:"L-34 Maths-Reasoning | Free Practice Batch | Maths for Special CCE/Constable Exam #cce #maths",views:16887,duration:"4:42:58",liveDate:"2026-03-18"},
+  {id:"7ofV3Z4dGHc",title:"Chapter-16 Super Test Solution | GCERT ધોરણ-9 સામાજિક વિજ્ઞાન | GCERT Social Science | #gcert #cce",views:2056,duration:"1:57:40",liveDate:"2026-03-18"},
+  {id:"8g6PrefoKC4",title:"Antonyms | 15 Day-15 Topic | English Special | Target CCE English 15 Marks Strategy",views:2957,duration:"2:19:17",liveDate:"2026-03-17"},
+  {id:"PKawtw_hR4M",title:"L-33 Maths-Reasoning | Free Practice Batch | Maths for Special CCE/Constable Exam #cce #maths",views:6733,duration:"1:39:08",liveDate:"2026-03-17"},
+  {id:"WMtEgsgx7t8",title:"Chapter-15 Super Test Solution | GCERT ધોરણ-9 સામાજિક વિજ્ઞાન | GCERT Social Science | #gcert #cce",views:2057,duration:"1:22:59",liveDate:"2026-03-17"},
+  {id:"Er7JAe1XkC8",title:"L-20 વિજયનગર સામ્રાજ્ય | History | ઈતિહાસની દીર્ઘ દ્રષ્ટિ | Syllabus મુજબ તૈયારી | #cce #psi",views:1743,duration:"1:09:39",liveDate:"2026-03-16"},
+  {id:"egPgTY1M6Wo",title:"L-32 Reasoning | Free Practice Batch | Maths for Special CCE/Constable Exam #cce #maths",views:5564,duration:"1:22:49",liveDate:"2026-03-16"},
+  {id:"UKJG-5t8EJg",title:"Chapter-14 Super Test Solution | GCERT ધોરણ-9 સામાજિક વિજ્ઞાન | GCERT Social Science | #gcert #cce",views:2316,duration:"1:43:23",liveDate:"2026-03-16"},
+];
+
+function parseDurString(s) {
+    if (!s) return 0;
+    const p = s.split(':').map(Number);
+    if (p.length === 3) return p[0]*60 + p[1] + p[2]/60;
+    if (p.length === 2) return p[0] + p[1]/60;
+    return 0;
+}
+
+function loadScrapedData() {
+    const sub = (title) => {
+        const s = detectSubject(title);
+        return { subject: s.name, subjectColor: s.color, subjectIcon: s.icon };
+    };
+    return SCRAPED_RAW.map(v => ({
+        id: v.id,
+        title: v.title,
+        publishedAt: v.liveDate + 'T12:00:00Z',
+        liveDate: v.liveDate,
+        views: v.views,
+        likes: 0,
+        comments: 0,
+        duration: v.duration,
+        durationMinutes: parseDurString(v.duration),
+        ...sub(v.title),
+    })).sort((a,b) => new Date(b.liveDate) - new Date(a.liveDate));
+}
+
+// On load: restore from localStorage or use scraped data
+window.addEventListener('DOMContentLoaded', () => {
+    const savedKey = localStorage.getItem('nirmaan_api_key');
+    const savedData = localStorage.getItem('nirmaan_data');
+    const savedTime = localStorage.getItem('nirmaan_fetched');
+
+    if (savedKey) {
+        document.getElementById('apiKeyInput').value = savedKey;
+    }
+
+    if (savedData && savedTime) {
+        const fetchedAgo = Date.now() - new Date(savedTime).getTime();
+        const hoursAgo = Math.round(fetchedAgo / (1000 * 60 * 60));
+        allVideos = JSON.parse(savedData);
+        if (allVideos.length > 0) {
+            renderDashboard();
+            showStatus(`Showing API data (fetched ${hoursAgo}h ago). Click "Fetch Data" to refresh.`);
+            setTimeout(hideStatus, 5000);
+            return;
+        }
+    }
+
+    // Fall back to embedded scraped data
+    allVideos = loadScrapedData();
+    renderDashboard();
+    showStatus('Showing live-scraped data (Mar 16–25, 2026). Add API key above for full 3-month history.');
+    setTimeout(hideStatus, 8000);
+});
+</script>
+
+</body>
+</html>
