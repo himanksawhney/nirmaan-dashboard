@@ -19,7 +19,7 @@ import urllib.parse
 from pathlib import Path
 
 SERVE_DIR = Path(__file__).parent
-PORT = 8766
+PORT = int(os.environ.get("PORT", 8766))
 
 # ── Pitch keyword patterns ────────────────────────────────────────────────────
 PITCH_PATTERNS = {

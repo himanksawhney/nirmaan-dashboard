@@ -1483,11 +1483,14 @@ async function autoScanPitches() {
     const msgEl = document.getElementById('spScanMsg');
     const barEl = document.getElementById('spScanBar');
 
+    // Resolve API base — Render backend URL or same-origin (local dev)
+    const SCAN_BASE = (window.PITCH_API_URL || '').replace(/\/$/, '');
+
     // Check server is up
     try {
-        await fetch('/api/scan?ids=test', {signal: AbortSignal.timeout(2000)});
+        await fetch(`${SCAN_BASE}/api/scan?ids=test`, {signal: AbortSignal.timeout(4000)});
     } catch {
-        alert('⚠️ Pitch Scanner server not running.\n\nPlease start it:\n  python3 /Users/cp/pitch_server.py\n\nThen click Auto-Scan again.');
+        alert('⚠️ Pitch Scanner server not reachable.\n\nLocal: python3 /Users/cp/pitch_server.py\nDeployed: see README for Render setup.');
         return;
     }
 
@@ -1495,7 +1498,7 @@ async function autoScanPitches() {
     btn.textContent = '⏳ Scanning...';
     statusDiv.style.display = 'block';
 
-    const BATCH = 3; // scan 3 at a time to avoid rate limits
+    const BATCH = 3;
     const videos = allVideos;
     const tags = getSpTags();
     let done = 0;
@@ -1507,7 +1510,7 @@ async function autoScanPitches() {
         barEl.style.width = Math.round((done / videos.length) * 100) + '%';
 
         try {
-            const resp = await fetch(`/api/scan?ids=${ids}`);
+            const resp = await fetch(`${SCAN_BASE}/api/scan?ids=${ids}`);
             const data = await resp.json();
             if (data.results) {
                 data.results.forEach(r => {

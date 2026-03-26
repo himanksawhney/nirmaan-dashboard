@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: nirmaan-pitch-scanner
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python pitch_server.py
+    envVars:
+      - key: PORT
+        value: 8766
+    plan: free
