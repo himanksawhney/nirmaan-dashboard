@@ -1986,6 +1986,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Step 3: Always fetch fresh YouTube data — replaces scraped/cached data with full live range
     await fetchAllData(true);      // updates allVideos + re-renders with correct full date range
+
+    // Step 4: Auto-scan any NEW or PENDING videos in the background (silent, no UI block)
+    backgroundScanNew();
 });
 </script>
 
