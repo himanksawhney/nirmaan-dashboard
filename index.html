@@ -522,10 +522,10 @@
         <h3>&#128197; Daily Live Analysis</h3>
         <div class="daily-controls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">From :</label>
-            <input type="date" id="dailyFromPicker" onchange="renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
+            <input type="date" id="dailyFromPicker" onchange="userSetDateRange=true; renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
                 style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
             <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">To :</label>
-            <input type="date" id="dailyToPicker" onchange="renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
+            <input type="date" id="dailyToPicker" onchange="userSetDateRange=true; renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
                 style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
             <span id="dailyRangeLabel"
                 style="font-size:12px;color:var(--text-dim);padding:4px 12px;background:rgba(233,69,96,0.1);border-radius:20px;border:1px solid rgba(233,69,96,0.2);">
@@ -699,6 +699,7 @@ const CHANNEL_ID = 'UCvCAK_O_4gB4OvHr765ZuQg';
 let API_KEY = 'AIzaSyDIqS23y8Ce2zkPkVtyKz1ZPvgU1r-f9zU';
 let allVideos = [];
 let chartInstances = {};
+let userSetDateRange = false;   // true only when user manually picks a date
 
 // Subject detection from video titles
 const SUBJECT_PATTERNS = [
@@ -987,15 +988,19 @@ function renderDashboard() {
     // Render filter buttons
     renderFilters(subjectMap);
 
-    // Set date range pickers — only initialise if not already set by user
+    // Set date range pickers
+    // Always reset to full range UNLESS user has manually chosen a range this session
     const oldestDate = toLocalDateKey(allVideos[allVideos.length - 1].liveDate);
     const latestDate = toLocalDateKey(allVideos[0].liveDate);
     const fromPicker = document.getElementById('dailyFromPicker');
     const toPicker   = document.getElementById('dailyToPicker');
     fromPicker.min = toPicker.min = oldestDate;
     fromPicker.max = toPicker.max = toLocalDateKey(new Date().toISOString());
-    if (!fromPicker.value) fromPicker.value = oldestDate;
-    if (!toPicker.value)   toPicker.value   = latestDate;
+    if (!userSetDateRange) {
+        // Auto-set to full range of loaded data (e.g. when fresh YT data replaces scraped data)
+        fromPicker.value = oldestDate;
+        toPicker.value   = latestDate;
+    }
     renderDailyAnalysis();
     renderSuperPassSection();
 }
@@ -1956,30 +1961,31 @@ function showConnectedState() {}
 function showSetupState() {}
 function disconnectApi() {}
 
-// On load: show cached data instantly, sync tags from server, then fetch fresh
-window.addEventListener('DOMContentLoaded', () => {
+// On load: show cached/scraped data instantly, then always fetch fresh from YouTube
+window.addEventListener('DOMContentLoaded', async () => {
+    // Step 1: Show something immediately (cached localStorage or embedded scraped data)
     const savedData = localStorage.getItem('nirmaan_data');
     const savedTime = localStorage.getItem('nirmaan_fetched');
+    const hasCached = savedData && savedTime;
 
-    if (savedData && savedTime) {
+    if (hasCached) {
         const parsed = JSON.parse(savedData);
         if (parsed.length > 0) {
             allVideos = parsed;
             renderDashboard();
-            syncTagsFromServer();       // load server-side pitch tags
-            fetchAllData(true);         // refresh video data in background
-            return;
         }
+    } else {
+        // No cache — show embedded scraped data as placeholder
+        allVideos = loadScrapedData();
+        renderDashboard();
+        showStatus('Loading latest data from YouTube...');
     }
 
-    // No cache — show scraped data while fetching
-    fetchAllData(true);
+    // Step 2: Always sync pitch tags from server
+    syncTagsFromServer();
 
-    allVideos = loadScrapedData();
-    renderDashboard();
-    syncTagsFromServer();               // load server-side pitch tags
-    showStatus('Fetching latest data from YouTube...');
-    setTimeout(hideStatus, 5000);
+    // Step 3: Always fetch fresh YouTube data — replaces scraped/cached data with full live range
+    await fetchAllData(true);      // updates allVideos + re-renders with correct full date range
 });
 </script>
 
