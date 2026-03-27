@@ -522,10 +522,10 @@
         <h3>&#128197; Daily Live Analysis</h3>
         <div class="daily-controls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">From :</label>
-            <input type="date" id="dailyFromPicker" onchange="userSetDateRange=true; renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
+            <input type="date" id="dailyFromPicker" onchange="userSetDateRange=true; updateSummaryCards(getDateFilteredVideos()); renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
                 style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
             <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">To :</label>
-            <input type="date" id="dailyToPicker" onchange="userSetDateRange=true; renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
+            <input type="date" id="dailyToPicker" onchange="userSetDateRange=true; updateSummaryCards(getDateFilteredVideos()); renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
                 style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
             <span id="dailyRangeLabel"
                 style="font-size:12px;color:var(--text-dim);padding:4px 12px;background:rgba(233,69,96,0.1);border-radius:20px;border:1px solid rgba(233,69,96,0.2);">
@@ -925,27 +925,62 @@ async function fetchAllData(silent = false) {
     if (fetchBtn) { fetchBtn.disabled = false; fetchBtn.textContent = silent ? '🔄 Refresh Now' : 'Fetch Data'; }
 }
 
+// Update the 6 top summary cards for a given set of videos
+function updateSummaryCards(videos) {
+    if (!videos || videos.length === 0) return;
+
+    const totalViews      = videos.reduce((s, v) => s + v.views, 0);
+    const totalStreams     = videos.length;
+    const dates           = videos.map(v => new Date(v.liveDate));
+    const minDate         = new Date(Math.min(...dates));
+    const maxDate         = new Date(Math.max(...dates));
+    const weekSpan        = Math.max(1, Math.ceil((maxDate - minDate) / (7 * 24 * 60 * 60 * 1000)));
+    const avgPerWeek      = (totalStreams / weekSpan).toFixed(1);
+    const avgViews        = Math.round(totalViews / totalStreams);
+    const avgDurationMins = videos.reduce((s, v) => s + v.durationMinutes, 0) / totalStreams;
+
+    const subjectMap = {};
+    videos.forEach(v => {
+        if (!subjectMap[v.subject]) subjectMap[v.subject] = { views: 0, count: 0 };
+        subjectMap[v.subject].views += v.views;
+        subjectMap[v.subject].count++;
+    });
+    const topSubjectEntry = Object.entries(subjectMap).sort((a, b) => b[1].views - a[1].views)[0];
+
+    // Label: use the date range or "Last 3 months" for full set
+    const isFullSet = videos.length === allVideos.length;
+    const fromPicker = document.getElementById('dailyFromPicker');
+    const toPicker   = document.getElementById('dailyToPicker');
+    const rangeLabel = (!isFullSet && fromPicker?.value && toPicker?.value)
+        ? `${fromPicker.value.split('-').reverse().join('/')} – ${toPicker.value.split('-').reverse().join('/')}`
+        : 'Last 3 months';
+
+    document.getElementById('totalStreams').textContent    = totalStreams;
+    document.getElementById('totalStreamsSub').textContent = rangeLabel;
+    document.getElementById('avgPerWeek').textContent      = avgPerWeek;
+    document.getElementById('avgPerWeekSub').textContent   = `Over ${weekSpan} week${weekSpan !== 1 ? 's' : ''}`;
+    document.getElementById('totalViews').textContent      = formatNumber(totalViews);
+    document.getElementById('totalViewsSub').textContent   = isFullSet ? 'All live streams' : 'In selected range';
+    document.getElementById('avgViews').textContent        = formatNumber(avgViews);
+    document.getElementById('avgViewsSub').textContent     = `Across ${totalStreams} streams`;
+    document.getElementById('topSubject').textContent      = topSubjectEntry ? topSubjectEntry[0] : '-';
+    document.getElementById('topSubjectSub').textContent   = topSubjectEntry ? `${formatNumber(topSubjectEntry[1].views)} total views` : '-';
+
+    const avgH = Math.floor(avgDurationMins / 60);
+    const avgM = Math.round(avgDurationMins % 60);
+    document.getElementById('avgDuration').textContent = avgH > 0 ? `${avgH}h ${avgM}m` : `${avgM}m`;
+}
+
 function renderDashboard() {
     document.getElementById('dashboardContent').classList.remove('hidden');
     document.getElementById('emptyState').classList.add('hidden');
 
     if (allVideos.length === 0) return;
 
-    // Summary stats
-    const totalViews = allVideos.reduce((s, v) => s + v.views, 0);
-    const totalStreams = allVideos.length;
+    // Summary cards — show full set on initial load
+    updateSummaryCards(allVideos);
 
-    // Weeks calculation
-    const dates = allVideos.map(v => new Date(v.liveDate));
-    const minDate = new Date(Math.min(...dates));
-    const maxDate = new Date(Math.max(...dates));
-    const weekSpan = Math.max(1, Math.ceil((maxDate - minDate) / (7 * 24 * 60 * 60 * 1000)));
-
-    const avgPerWeek = (totalStreams / weekSpan).toFixed(1);
-    const avgViews = Math.round(totalViews / totalStreams);
-    const avgDurationMins = allVideos.reduce((s, v) => s + v.durationMinutes, 0) / totalStreams;
-
-    // Subject analysis
+    // Subject analysis (full set for subject grid)
     const subjectMap = {};
     allVideos.forEach(v => {
         if (!subjectMap[v.subject]) {
@@ -956,22 +991,6 @@ function renderDashboard() {
         subjectMap[v.subject].likes += v.likes;
         subjectMap[v.subject].totalDuration += v.durationMinutes;
     });
-
-    const topSubjectEntry = Object.entries(subjectMap).sort((a, b) => b[1].views - a[1].views)[0];
-
-    // Update summary cards
-    document.getElementById('totalStreams').textContent = totalStreams;
-    document.getElementById('avgPerWeek').textContent = avgPerWeek;
-    document.getElementById('avgPerWeekSub').textContent = `Over ${weekSpan} weeks`;
-    document.getElementById('totalViews').textContent = formatNumber(totalViews);
-    document.getElementById('avgViews').textContent = formatNumber(avgViews);
-    document.getElementById('avgViewsSub').textContent = `Across ${totalStreams} streams`;
-    document.getElementById('topSubject').textContent = topSubjectEntry ? topSubjectEntry[0] : '-';
-    document.getElementById('topSubjectSub').textContent = topSubjectEntry ? `${formatNumber(topSubjectEntry[1].views)} total views` : '-';
-
-    const avgH = Math.floor(avgDurationMins / 60);
-    const avgM = Math.round(avgDurationMins % 60);
-    document.getElementById('avgDuration').textContent = avgH > 0 ? `${avgH}h ${avgM}m` : `${avgM}m`;
 
     // Render charts
     renderWeeklyChart();
