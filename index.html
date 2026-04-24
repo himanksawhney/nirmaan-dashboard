@@ -522,10 +522,10 @@
         <h3>&#128197; Daily Live Analysis</h3>
         <div class="daily-controls" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">From :</label>
-            <input type="date" id="dailyFromPicker" onchange="userSetDateRange=true; updateSummaryCards(getDateFilteredVideos()); renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
+            <input type="date" id="dailyFromPicker" onchange="userSetDateRange=true; updateSummaryCards(getDateFilteredVideos()); renderDailyAnalysis(); renderSuperPassSection(); renderShortsSection(getDateFilteredShorts()); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
                 style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
             <label style="font-size:13px;color:var(--text-dim);white-space:nowrap;">To :</label>
-            <input type="date" id="dailyToPicker" onchange="userSetDateRange=true; updateSummaryCards(getDateFilteredVideos()); renderDailyAnalysis(); renderSuperPassSection(); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
+            <input type="date" id="dailyToPicker" onchange="userSetDateRange=true; updateSummaryCards(getDateFilteredVideos()); renderDailyAnalysis(); renderSuperPassSection(); renderShortsSection(getDateFilteredShorts()); if(spTaggingOpen) renderSpTagList(); const _ab=document.querySelector('.filter-btn.active'); filterTable(_ab?_ab.dataset.filter:'all', _ab||document.querySelector('.filter-btn'));"
                 style="padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;">
             <span id="dailyRangeLabel"
                 style="font-size:12px;color:var(--text-dim);padding:4px 12px;background:rgba(233,69,96,0.1);border-radius:20px;border:1px solid rgba(233,69,96,0.2);">
@@ -668,7 +668,7 @@
             <div class="summary-card card-blue">
                 <div class="label">Total Shorts</div>
                 <div class="value" id="shortsCount" style="color:#42a5f5">0</div>
-                <div class="sub">Last 3 months</div>
+                <div class="sub" id="shortsRangeLabel">All time</div>
             </div>
             <div class="summary-card card-green">
                 <div class="label">Total Reach (Views)</div>
@@ -1085,7 +1085,7 @@ function renderDashboard() {
     }
     renderDailyAnalysis();
     renderSuperPassSection();
-    renderShortsSection(SEED_SHORTS);
+    renderShortsSection(getDateFilteredShorts());
 }
 
 function renderWeeklyChart() {
@@ -1323,6 +1323,14 @@ function getDateFilteredVideos() {
         const d = toLocalDateKey(v.liveDate);
         return d >= from && d <= to;
     });
+}
+
+function getDateFilteredShorts() {
+    const fromStr = document.getElementById('dailyFromPicker')?.value;
+    const toStr   = document.getElementById('dailyToPicker')?.value;
+    if (!fromStr || !toStr) return SEED_SHORTS;
+    const [from, to] = fromStr <= toStr ? [fromStr, toStr] : [toStr, fromStr];
+    return SEED_SHORTS.filter(s => s.publishedAt >= from && s.publishedAt <= to);
 }
 
 function filterTable(subject, btn) {
@@ -1567,17 +1575,36 @@ const SEED_SHORTS = [{"id": "Y0UZB4AJewU", "title": "સરકારી પર�
 let shortsChart1 = null, shortsChart2 = null;
 
 function renderShortsSection(shorts) {
-    if (!shorts || !shorts.length) return;
+    if (!shorts || !shorts.length) {
+        // If no shorts in range, zero out the cards
+        document.getElementById('shortsCount').textContent = 0;
+        document.getElementById('shortsTotalViews').textContent = 0;
+        document.getElementById('shortsAvgViews').textContent = 0;
+        document.getElementById('shortsAvgSub').textContent = 'no shorts in range';
+        document.getElementById('shortsTopViews').textContent = 0;
+        if (document.getElementById('shortsTopTitle')) document.getElementById('shortsTopTitle').textContent = '—';
+        document.getElementById('shortsTableBody').innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--text-dim)">No shorts in selected date range</td></tr>';
+        return;
+    }
     const total = shorts.length;
-    const totalViews = shorts.reduce((s, v) => s + v.viewCount, 0);
+    const totalViews = shorts.reduce((s, v) => s + (v.viewCount || 0), 0);
     const avgViews = Math.round(totalViews / total);
     const top = shorts.slice().sort((a, b) => b.viewCount - a.viewCount)[0];
 
+    // Range label
+    const fromPicker = document.getElementById('dailyFromPicker');
+    const toPicker   = document.getElementById('dailyToPicker');
+    const rangeLabel = (fromPicker?.value && toPicker?.value && shorts.length < SEED_SHORTS.length)
+        ? `${fromPicker.value.split('-').reverse().join('/')} – ${toPicker.value.split('-').reverse().join('/')}`
+        : 'All time';
+
     document.getElementById('shortsCount').textContent = total;
-    document.getElementById('shortsTotalViews').textContent = fmtNum(totalViews);
-    document.getElementById('shortsAvgViews').textContent = fmtNum(avgViews);
+    document.getElementById('shortsTotalViews').textContent = formatNumber(totalViews);
+    document.getElementById('shortsAvgViews').textContent = formatNumber(avgViews);
     document.getElementById('shortsAvgSub').textContent = `across ${total} shorts`;
-    document.getElementById('shortsTopViews').textContent = fmtNum(top.viewCount);
+    document.getElementById('shortsTopViews').textContent = formatNumber(top.viewCount);
+    const rl = document.getElementById('shortsRangeLabel');
+    if (rl) rl.textContent = rangeLabel;
     document.getElementById('shortsTopTitle').textContent = top.title.substring(0, 40) + '...';
 
     // Weekly chart data
@@ -1614,7 +1641,7 @@ function renderShortsSection(shorts) {
         options: { responsive: true, maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: { x: { ticks: { color: '#8b92b8', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                       y: { ticks: { color: '#8b92b8', callback: v => fmtNum(v) }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+                       y: { ticks: { color: '#8b92b8', callback: v => formatNumber(v) }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
     });
 
     // Table — top 50 by views
@@ -1626,8 +1653,8 @@ function renderShortsSection(shorts) {
             <td style="padding:10px;max-width:340px;font-size:13px;">
                 <a href="https://youtube.com/shorts/${v.id}" target="_blank" style="color:var(--text);text-decoration:none;" onmouseover="this.style.color='#42a5f5'" onmouseout="this.style.color='var(--text)'">${v.title.substring(0, 70)}</a>
             </td>
-            <td style="padding:10px;${v.viewCount > avgV * 1.5 ? 'color:#ffa726;font-weight:600;' : ''}">${fmtNum(v.viewCount)}</td>
-            <td style="padding:10px;">${fmtNum(v.likeCount)}</td>
+            <td style="padding:10px;${v.viewCount > avgV * 1.5 ? 'color:#ffa726;font-weight:600;' : ''}">${formatNumber(v.viewCount)}</td>
+            <td style="padding:10px;">${formatNumber(v.likeCount)}</td>
             <td style="padding:10px;white-space:nowrap;">${v.durationSeconds}s</td>
         </tr>`).join('');
 }
