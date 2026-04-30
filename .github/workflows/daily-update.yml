@@ -1,0 +1,37 @@
+name: Daily Dashboard Update
+
+on:
+  schedule:
+    - cron: '30 3 * * *'   # 3:30 AM UTC = 9:00 AM IST, every day
+  workflow_dispatch:         # allow manual trigger from GitHub UI
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # allow pushing commits
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Refresh SEED_SHORTS + detect new live streams
+        run: python3 .github/scripts/cloud_update.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "Nirmaan Bot"
+          git config user.email "noreply@github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "No changes — nothing to push."
+          else
+            git commit -m "Auto update: shorts + new videos — $(date '+%d %b %Y')"
+            git push
+            echo "✅ Pushed to GitHub — Netlify deploying."
+          fi
